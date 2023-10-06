@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
-from .src.invariants import invariant_attr_r3, invariant_attr_r3s2_spatial, invariant_attr_r3s2_spherical
-from .src.to_from_sphere import scalar_to_sphere, sphere_to_scalar, sphere_to_vec, vec_to_sphere
-from .src.convnext import ConvNextR3S2
-from .src.embedding import PolynomialFeatures
-from .src.rotation import uniform_grid_s2, random_matrix
-from .src.windowing import PolynomialCutoff
+from src.invariants import invariant_attr_r3, invariant_attr_r3s2_spatial, invariant_attr_r3s2_spherical
+from src.to_from_sphere import scalar_to_sphere, sphere_to_scalar, sphere_to_vec, vec_to_sphere
+from src.convnext import ConvNextR3S2
+from src.embedding import PolynomialFeatures
+from src.rotation import uniform_grid_s2, random_matrix
+from src.windowing import PolynomialCutoff
 from torch_geometric.utils import to_dense_batch
 from torch_geometric.nn import global_add_pool
 
