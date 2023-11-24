@@ -6,6 +6,7 @@ import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
 from torch_geometric.data import Batch
+from ponita.transforms.random_rotate import RandomRotate3D
 
 
 class PONITA_MD17(pl.LightningModule):
@@ -24,6 +25,10 @@ class PONITA_MD17(pl.LightningModule):
         self.lambda_F = args.lambda_F
         if args.layer_scale == 0.:
             args.layer_scale = None
+
+        # For rotation augmentations during training and testing
+        self.train_augm = args.train_augm
+        self.rotation_transform = RandomRotate3D(['pos','force'])
         
         # Shift and scale before callibration
         self.shift = 0.
@@ -44,20 +49,19 @@ class PONITA_MD17(pl.LightningModule):
         out_channels_vec = 0  # Output velocity
 
         # Make the model
-        self.model = PONITA(in_channels_scalar,
+        self.model = PONITA(in_channels_scalar + in_channels_vec,
                         args.hidden_dim,
                         out_channels_scalar,
                         args.layers,
-                        input_dim_vec=in_channels_vec,
                         output_dim_vec=out_channels_vec,
                         radius=args.radius,
                         n=args.n,
-                        M=args.M,
                         basis_dim=args.basis_dim,
                         degree=args.degree,
                         widening_factor=args.widening_factor,
                         layer_scale=args.layer_scale,
-                        task_level='graph')
+                        task_level='graph',
+                        multiple_readouts=args.multiple_readouts)
 
     def set_dataset_statistics(self, dataset):
         ys = np.array([data.energy.item() for data in dataset])
@@ -98,6 +102,8 @@ class PONITA_MD17(pl.LightningModule):
         return pred_energy, pred_force
 
     def training_step(self, graph):
+        if self.train_augm:
+            graph = self.rotation_transform(graph)
         pred_energy, pred_force = self.pred_energy_and_force(graph)
         
         energy_loss = torch.mean((pred_energy - (graph.energy - self.shift) / self.scale)**2)
@@ -109,7 +115,7 @@ class PONITA_MD17(pl.LightningModule):
 
         return loss
 
-    def on_training_epoch_end(self):
+    def on_train_epoch_end(self):
         self.log("train MAE (energy)", self.train_metric, prog_bar=True)
         self.log("train MAE (force)", self.train_metric_force, prog_bar=True)
 
@@ -123,18 +129,26 @@ class PONITA_MD17(pl.LightningModule):
         self.log("valid MAE (force)", self.valid_metric_force, prog_bar=True)
     
     def test_step(self, graph, batch_idx):
-            # Repeat the prediction self.repeat number of times and average (makes sense due to random grids)
-            batch_size = graph.batch.max() + 1
-            batch_length = graph.batch.shape[0]
-            graph_repeated = Batch.from_data_list([graph] * self.repeats)
-            pred_energy_repeated, pred_force_repeated = self.pred_energy_and_force(graph_repeated)
-            pred_energy_repeated = pred_energy_repeated.unflatten(0, (self.repeats, batch_size))
-            pred_force_repeated = pred_force_repeated.unflatten(0, (self.repeats, batch_length))
-            # Compute the averages
-            for r in range(self.repeats):
-                pred_energy, pred_force = pred_energy_repeated[:r+1].mean(0), pred_force_repeated[:r+1].mean(0)
-                self.test_metrics_energy[r](pred_energy * self.scale + self.shift, graph.energy)
-                self.test_metrics_force[r](pred_force * self.scale, graph.force)
+        # Repeat the prediction self.repeat number of times and average (makes sense due to random grids)
+        batch_size = graph.batch.max() + 1
+        batch_length = graph.batch.shape[0]
+        graph_repeated = Batch.from_data_list([graph] * self.repeats)
+        # Random rotate graph
+        rot = self.rotation_transform.random_rotation(graph_repeated)
+        graph_repeated = self.rotation_transform.rotate_graph(graph_repeated, rot)
+        # Compute results
+        pred_energy_repeated, pred_force_repeated = self.pred_energy_and_force(graph_repeated)
+        # Unrotate results
+        rot_T = rot.transpose(-2,-1)
+        pred_force_repeated = self.rotation_transform.rotate_attr(pred_force_repeated, rot_T)
+        # Unwrap predictions
+        pred_energy_repeated = pred_energy_repeated.unflatten(0, (self.repeats, batch_size))
+        pred_force_repeated = pred_force_repeated.unflatten(0, (self.repeats, batch_length))
+        # Compute the averages
+        for r in range(self.repeats):
+            pred_energy, pred_force = pred_energy_repeated[:r+1].mean(0), pred_force_repeated[:r+1].mean(0)
+            self.test_metrics_energy[r](pred_energy * self.scale + self.shift, graph.energy)
+            self.test_metrics_force[r](pred_force * self.scale, graph.force)
 
     def on_test_epoch_end(self):
         for r in range(self.repeats):

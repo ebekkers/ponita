@@ -16,20 +16,16 @@ class SeparableConvR3S2(torch_geometric.nn.MessagePassing):
             self.register_parameter('bias', None)
         self.register_buffer("callibrated", torch.tensor(False))
         
-    def forward(self, x, edge_attr_spatial, edge_attr_sphere, edge_index=None):
+    def forward(self, x, edge_attr_spatial, edge_attr_sphere, edge_index):
         """
         """
         # Sample the convolution kernels
-        kernel_spatial = self.kernel_spatial(edge_attr_spatial)
-        kernel_spherical = self.kernel_spherical(edge_attr_sphere)
+        kernel_spatial = self.kernel_spatial(edge_attr_spatial)     # [num_edges, num_ori, num_channels]
+        kernel_spherical = self.kernel_spherical(edge_attr_sphere)  # [num_ori, num_ori, num_channels]
 
         # Do the convolutions: 1. Spatial conv, 2. Spherical conv
-        if edge_index is None:
-            x_1 = torch.einsum('bxoc,bxyoc->byoc', x, kernel_spatial)
-            x_2 = torch.einsum('bxoc,bopc->bxpc', x_1, kernel_spherical) / kernel_spherical.shape[-2]
-        else:
-            x_1 = self.propagate(edge_index, x=x, kernel_spatial=kernel_spatial)
-            x_2 = torch.einsum('boc,bopc->bpc', x_1, kernel_spherical) / kernel_spherical.shape[-2]
+        x_1 = self.propagate(edge_index, x=x, kernel_spatial=kernel_spatial)
+        x_2 = torch.einsum('boc,opc->bpc', x_1, kernel_spherical) / kernel_spherical.shape[-2]
 
         # Re-callibrate the initializaiton
         if self.training and not(self.callibrated):
