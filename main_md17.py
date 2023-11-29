@@ -78,13 +78,13 @@ if __name__ == "__main__":
                         help='MD17 target')
     
     # Graph connectivity settings
-    parser.add_argument('--radius', type=float, default=1000.0,
+    parser.add_argument('--radius', type=eval, default=None,
                         help='radius for the radius graph construction in front of the force loss')
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
     
     # PONTA model settings
-    parser.add_argument('--n', type=int, default=20,
+    parser.add_argument('--num_ori', type=int, default=20,
                         help='num elements of spherical grid')
     parser.add_argument('--hidden_dim', type=int, default=128,
                         help='internal feature dimension')
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     # ------------------------ Dataset
     
     # Load the dataset and set the dataset specific settings
-    transform = [Kcal2meV(), OneHotTransform(9), RadiusGraph(args.radius, loop=args.loop, max_num_neighbors=1000)]
+    transform = [Kcal2meV(), OneHotTransform(9), RadiusGraph((args.radius or 1000.), loop=args.loop, max_num_neighbors=1000)]
     dataset = MD17(root=args.root, name=args.target, transform=Compose(transform))
     
     # Create train, val, test split
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     
     # Initialize the trainer
     trainer = pl.Trainer(logger=logger, max_epochs=args.epochs, callbacks=callbacks, inference_mode=False, # Important for force computation via backprop
-                         gradient_clip_val=1., accelerator=accelerator, devices=devices, enable_progress_bar=args.enable_progress_bar)
+                         gradient_clip_val=0.5, accelerator=accelerator, devices=devices, enable_progress_bar=args.enable_progress_bar)
     
     # Do the training
     trainer.fit(model, dataloaders['train'], dataloaders['val'])

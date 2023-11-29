@@ -1,11 +1,9 @@
 import pytorch_lightning as pl
 import torch
 import torchmetrics
-from models.ponita import PONITA
+from models.ponita import PonitaFiberBundle
 from .scheduler import CosineWarmupScheduler
 from ponita.transforms.random_rotate import RandomRotate3D
-from torch_geometric.data import Batch
-import numpy as np
 
 
 class PONITA_NBODY(pl.LightningModule):
@@ -38,13 +36,13 @@ class PONITA_NBODY(pl.LightningModule):
         out_channels_vec = 1  # Output velocity
 
         # Make the model
-        self.model = PONITA(in_channels_scalar + in_channels_vec,
+        self.model = PonitaFiberBundle(in_channels_scalar + in_channels_vec,
                         args.hidden_dim,
                         out_channels_scalar,
                         args.layers,
                         output_dim_vec = out_channels_vec,
                         radius=args.radius,
-                        n=args.n,
+                        num_ori=args.num_ori,
                         basis_dim=args.basis_dim,
                         degree=args.degree,
                         widening_factor=args.widening_factor,

@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from models.ponita import PONITA
+from models.ponita import PonitaFiberBundle
 import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
@@ -49,13 +49,13 @@ class PONITA_MD17(pl.LightningModule):
         out_channels_vec = 0  # Output velocity
 
         # Make the model
-        self.model = PONITA(in_channels_scalar + in_channels_vec,
+        self.model = PonitaFiberBundle(in_channels_scalar + in_channels_vec,
                         args.hidden_dim,
                         out_channels_scalar,
                         args.layers,
                         output_dim_vec=out_channels_vec,
                         radius=args.radius,
-                        n=args.n,
+                        num_ori=args.num_ori,
                         basis_dim=args.basis_dim,
                         degree=args.degree,
                         widening_factor=args.widening_factor,

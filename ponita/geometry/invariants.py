@@ -7,7 +7,7 @@ def invariant_attr_r3(pos, edge_index):
     return dists
 
 
-def invariant_attr_r3s2(pos, ori_grid, edge_index, separable=False):
+def invariant_attr_r3s2_fiber_bundle(pos, ori_grid, edge_index, separable=False):
     pos_send, pos_receive = pos[edge_index[0]], pos[edge_index[1]]                # [num_edges, 3]
     rel_pos = (pos_send - pos_receive)                                            # [num_edges, 3]
 
@@ -32,5 +32,17 @@ def invariant_attr_r3s2(pos, ori_grid, edge_index, separable=False):
         invariant2 = invariant2[:,:,None,:].expand(-1,-1,ori_grid.shape[0],-1)    # [num_edges, num_ori, num_ori, 1]
         invariant3 = invariant3[None,:,:,:].expand(invariant1.shape[0],-1,-1,-1)  # [num_edges, num_ori, num_ori, 1]
         return torch.cat([invariant1, invariant2, invariant3],dim=-1)             # [num_edges, num_ori, num_ori, 3]
+    
+def invariant_attr_r3s2_point_cloud(pos, edge_index):
+    pos_send, pos_receive = pos[edge_index[0],:3], pos[edge_index[1],:3]          # [num_edges, 3]
+    ori_send, ori_receive = pos[edge_index[0],3:], pos[edge_index[1],3:]          # [num_edges, 3]
+    rel_pos = (pos_send - pos_receive)                                            # [num_edges, 3]
+
+    rel_pos = pos_send - pos_receive                                              # [num_edges, 3]
+    invariant1 = torch.sum(rel_pos * ori_receive, dim=-1, keepdim=True)
+    invariant2 = (rel_pos - ori_receive * invariant1).norm(dim=-1, keepdim=True)
+    invariant3 = torch.sum(ori_send * ori_receive, dim=-1, keepdim=True)
+
+    return torch.cat([invariant1, invariant2, invariant3],dim=-1)             # [num_edges, num_ori, num_ori, 3]
     
     
