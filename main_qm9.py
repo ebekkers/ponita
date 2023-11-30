@@ -26,7 +26,7 @@ if __name__ == "__main__":
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=10,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=64,
+    parser.add_argument('--batch_size', type=int, default=96,
                         help='Batch size. Does not scale with number of gpus.')
     parser.add_argument('--lr', type=float, default=5e-4,
                         help='learning rate')
@@ -50,7 +50,7 @@ if __name__ == "__main__":
                         help='number of repeated forward passes at test-time')
     
     # QM9 Dataset
-    parser.add_argument('--root', type=str, default="datasets",
+    parser.add_argument('--root', type=str, default="datasets/qm9",
                         help='Data set location')
     parser.add_argument('--target', type=str, default="alpha",
                         help='MD17 target')
@@ -70,11 +70,11 @@ if __name__ == "__main__":
                         help='number of basis functions')
     parser.add_argument('--degree', type=int, default=3,
                         help='degree of the polynomial embedding')
-    parser.add_argument('--layers', type=int, default=10,
+    parser.add_argument('--layers', type=int, default=20,
                         help='Number of message passing layers')
     parser.add_argument('--widening_factor', type=int, default=4,
                         help='Number of message passing layers')
-    parser.add_argument('--layer_scale', type=float, default=1e-6,
+    parser.add_argument('--layer_scale', type=float, default=0,
                         help='Initial layer scale factor in ConvNextBlock, 0 means do not use layer scale')
     parser.add_argument('--multiple_readouts', type=eval, default=False,
                         help='Whether or not to readout after every layer')
@@ -100,9 +100,7 @@ if __name__ == "__main__":
     # ------------------------ Dataset
     
     # Load the dataset and set the dataset specific settings
-    from ponita.transforms import PositionOrientationGraph, SEnInvariantAttributes
-    transform = Compose([PositionOrientationGraph(args.num_ori), SEnInvariantAttributes(separable=False, point_cloud=True)])
-    dataset = QM9(root=args.root, pre_transform=transform)
+    dataset = QM9(root=args.root)
     
     # Create train, val, test split (same random seed and splits as DimeNet)
     random_state = np.random.RandomState(seed=42)
