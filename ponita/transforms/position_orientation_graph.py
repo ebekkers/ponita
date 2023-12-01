@@ -1,9 +1,10 @@
 import torch
-from torch_geometric.transforms import BaseTransform
+from torch_geometric.transforms import BaseTransform, RadiusGraph
 from torch_geometric.typing import SparseTensor
 from torch_geometric.utils import coalesce
 from ponita.geometry.rotation import uniform_grid_s2, random_matrix
 from ponita.utils.to_from_sphere import scalar_to_sphere, vec_to_sphere
+import torch_geometric
 
 
 class PositionOrientationGraph(BaseTransform):
@@ -16,15 +17,18 @@ class PositionOrientationGraph(BaseTransform):
         num_ori (int): Number of orientations used to discretize the sphere.
     """
 
-    def __init__(self, num_ori):
+    def __init__(self, num_ori, radius=None):
         super().__init__()
 
         # Discretization of the orientation grid
         self.num_ori = num_ori
+        self.radius = radius
 
         # Grid type
         if num_ori > 0:
             self.ori_grid = uniform_grid_s2(num_ori)  # [num_ori, 3]
+        if radius is not None:
+            self.transform = RadiusGraph(radius, loop=True, max_num_neighbors=1000)
 
     def __call__(self, graph):
         """
@@ -40,9 +44,12 @@ class PositionOrientationGraph(BaseTransform):
                                       and lifted feature (graph.f with shape [num_nodes, num_ori, num_vec + num_x]).
         """
         if self.num_ori == -1:
-            return self.to_po_point_cloud(graph)
+            graph = self.to_po_point_cloud(graph)
         else:
-            return self.to_po_fiber_bundle(graph)
+            graph = self.to_po_fiber_bundle(graph)
+        if self.radius is not None:
+            graph.edge_index = torch_geometric.nn.radius_graph(graph.pos[:,:graph.n], self.radius, graph.batch, True, max_num_neighbors=1000)
+        return graph
 
     def to_po_fiber_bundle(self, graph):
         """
@@ -58,6 +65,7 @@ class PositionOrientationGraph(BaseTransform):
         """
         graph.ori_grid = self.ori_grid.type_as(graph.pos)
         graph.num_ori = self.num_ori
+        graph.n = graph.pos.size(1)
 
         # Lift input features to spheres
         inputs = []
@@ -69,7 +77,9 @@ class PositionOrientationGraph(BaseTransform):
         return graph
 
     def to_po_point_cloud(self, graph):
-
+        
+        graph.n = graph.pos.size(1)
+        
         # -----------  The relevant items in the original graph
 
         edge_index = coalesce(graph.edge_index)

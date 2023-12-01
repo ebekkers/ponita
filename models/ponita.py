@@ -9,6 +9,21 @@ from torch_geometric.transforms import Compose
 from torch_scatter import scatter_mean
 from ponita.nn.conv import Conv, FiberBundleConv
 from ponita.nn.convnext import ConvNext
+from torch_geometric.transforms import BaseTransform, Compose, RadiusGraph
+
+
+# Wrapper to automatically switch between point cloud mode (num_ori = -1 or 0) and
+# bundle mode (num_ori > 0).
+def Ponita(input_dim, hidden_dim, output_dim, num_layers, output_dim_vec = 0, radius = None,
+           num_ori=20, basis_dim=None, degree=3, widening_factor=4, layer_scale=None,
+           task_level='graph', multiple_readouts=True, lift_graph=False, **kwargs):
+    # Select either FiberBundle mode or PointCloud mode
+    PonitaClass = PonitaFiberBundle if (num_ori > 0) else PonitaPointCloud
+    # Return the ponita object
+    return PonitaClass(input_dim, hidden_dim, output_dim, num_layers, output_dim_vec = output_dim_vec, 
+                       radius = radius, num_ori=num_ori, basis_dim=basis_dim, degree=degree, 
+                       widening_factor=widening_factor, layer_scale=layer_scale, task_level=task_level, 
+                       multiple_readouts=multiple_readouts, lift_graph=lift_graph, **kwargs)
 
 
 class PonitaFiberBundle(nn.Module):
@@ -26,7 +41,8 @@ class PonitaFiberBundle(nn.Module):
                  widening_factor=4,
                  layer_scale=None,
                  task_level='graph',
-                 multiple_readouts=True):
+                 multiple_readouts=True,
+                 **kwargs):
         super().__init__()
 
         # Input output settings
@@ -135,7 +151,7 @@ class PonitaPointCloud(nn.Module):
         # For constructing the position-orientation graph and its invariants
         self.lift_graph = lift_graph
         if lift_graph:
-            self.transform = Compose([PositionOrientationGraph(-1), SEnInvariantAttributes(separable=False, point_cloud=True)])
+            self.transform = Compose([PositionOrientationGraph(-1, radius), SEnInvariantAttributes(separable=False, point_cloud=True)])
 
         # Activation function to use internally
         act_fn = torch.nn.GELU()

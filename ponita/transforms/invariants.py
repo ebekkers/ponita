@@ -38,7 +38,7 @@ class SEnInvariantAttributes(BaseTransform):
                                       local orientations. If separable is False, graph.attr contains
                                       all pair-wise invariants between orientations.
         """
-        graph.dists = invariant_attr_r3(graph.pos[:,:3], graph.edge_index)
+        graph.dists = invariant_attr_r3(graph.pos[:,:graph.n], graph.edge_index)
         if self.point_cloud:
             graph.attr = invariant_attr_r3s2_point_cloud(graph.pos, graph.edge_index)
             return graph

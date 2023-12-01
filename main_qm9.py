@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from torch_geometric.datasets import QM9
 from torch_geometric.loader import DataLoader
-from torch_geometric.transforms import BaseTransform, Compose, RadiusGraph
 import pytorch_lightning as pl
 from lightning_wrappers.callbacks import EMA, EpochTimer
 from lightning_wrappers.qm9 import PONITA_QM9
@@ -56,7 +55,7 @@ if __name__ == "__main__":
                         help='MD17 target')
     
     # Graph connectivity settings
-    parser.add_argument('--radius', type=eval, default=None,
+    parser.add_argument('--radius', type=eval, default=1000.,
                         help='radius for the radius graph construction in front of the force loss')
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
@@ -70,7 +69,7 @@ if __name__ == "__main__":
                         help='number of basis functions')
     parser.add_argument('--degree', type=int, default=3,
                         help='degree of the polynomial embedding')
-    parser.add_argument('--layers', type=int, default=20,
+    parser.add_argument('--layers', type=int, default=5,
                         help='Number of message passing layers')
     parser.add_argument('--widening_factor', type=int, default=4,
                         help='Number of message passing layers')

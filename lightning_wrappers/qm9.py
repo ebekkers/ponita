@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from models.ponita import PonitaPointCloud
+from models.ponita import Ponita
 import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
@@ -46,7 +46,7 @@ class PONITA_QM9(pl.LightningModule):
         out_channels_vec = 0  # 
 
         # Make the model
-        self.model = PonitaPointCloud(in_channels_scalar + in_channels_vec,
+        self.model = Ponita(in_channels_scalar + in_channels_vec,
                         args.hidden_dim,
                         out_channels_scalar,
                         args.layers,
@@ -99,18 +99,6 @@ class PONITA_QM9(pl.LightningModule):
 
     def on_test_epoch_end(self):
         self.log("test MAE", self.test_metric, prog_bar=True)
-    
-    # def test_step(self, graph, batch_idx):
-    #     preds = []
-    #     for r in range(self.repeats):
-    #         # graph = self.rotation_transform(graph.clone())
-    #         pred = self(graph)
-    #         preds.append(pred)
-    #         self.test_metrics[r](torch.stack(preds[:r+1]).mean(0) * self.scale + self.shift, graph.y)
-
-    # def on_test_epoch_end(self):
-    #     for r in range(self.repeats):
-    #         self.log("test MAE x"+str(r+1), self.test_metrics[r])
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
