@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # ------------------------ Input arguments
     
     # Run parameters
-    parser.add_argument('--epochs', type=int, default=500,
+    parser.add_argument('--epochs', type=int, default=1000,
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=10,
                         help='number of epochs')
@@ -55,7 +55,7 @@ if __name__ == "__main__":
                         help='MD17 target')
     
     # Graph connectivity settings
-    parser.add_argument('--radius', type=eval, default=1000.,
+    parser.add_argument('--radius', type=eval, default=None,
                         help='radius for the radius graph construction in front of the force loss')
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
@@ -63,13 +63,13 @@ if __name__ == "__main__":
     # PONTA model settings
     parser.add_argument('--num_ori', type=int, default=-1,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=128,
+    parser.add_argument('--hidden_dim', type=int, default=256,
                         help='internal feature dimension')
     parser.add_argument('--basis_dim', type=int, default=256,
                         help='number of basis functions')
     parser.add_argument('--degree', type=int, default=3,
                         help='degree of the polynomial embedding')
-    parser.add_argument('--layers', type=int, default=5,
+    parser.add_argument('--layers', type=int, default=11,
                         help='Number of message passing layers')
     parser.add_argument('--widening_factor', type=int, default=4,
                         help='Number of message passing layers')

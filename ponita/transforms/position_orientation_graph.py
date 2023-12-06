@@ -1,7 +1,7 @@
 import torch
 from torch_geometric.transforms import BaseTransform, RadiusGraph
 from torch_geometric.typing import SparseTensor
-from torch_geometric.utils import coalesce
+from torch_geometric.utils import coalesce, remove_self_loops, add_self_loops
 from ponita.geometry.rotation import uniform_grid_s2, random_matrix
 from ponita.utils.to_from_sphere import scalar_to_sphere, vec_to_sphere
 import torch_geometric
@@ -47,8 +47,12 @@ class PositionOrientationGraph(BaseTransform):
             graph = self.to_po_point_cloud(graph)
         else:
             graph = self.to_po_fiber_bundle(graph)
+        loop = True  # Hard-code that self-interactions are always present
         if self.radius is not None:
-            graph.edge_index = torch_geometric.nn.radius_graph(graph.pos[:,:graph.n], self.radius, graph.batch, True, max_num_neighbors=1000)
+            graph.edge_index = torch_geometric.nn.radius_graph(graph.pos[:,:graph.n], self.radius, graph.batch, loop, max_num_neighbors=1000)
+        else:
+            if loop:
+                graph.edge_index = coalesce(add_self_loops(graph.edge_index)[0])
         return graph
 
     def to_po_fiber_bundle(self, graph):
@@ -82,7 +86,7 @@ class PositionOrientationGraph(BaseTransform):
         
         # -----------  The relevant items in the original graph
 
-        edge_index = coalesce(graph.edge_index)
+        edge_index = remove_self_loops(coalesce(graph.edge_index))[0]
         pos = graph.pos
         batch = graph.batch
         source, target = edge_index
