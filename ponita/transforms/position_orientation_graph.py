@@ -3,6 +3,7 @@ from torch_geometric.transforms import BaseTransform, RadiusGraph
 from torch_geometric.typing import SparseTensor
 from torch_geometric.utils import coalesce, remove_self_loops, add_self_loops
 from ponita.geometry.rotation import uniform_grid_s2, random_matrix
+from ponita.geometry.rotation_2d import uniform_grid_s1, random_so2_matrix
 from ponita.utils.to_from_sphere import scalar_to_sphere, vec_to_sphere
 import torch_geometric
 
@@ -26,7 +27,10 @@ class PositionOrientationGraph(BaseTransform):
 
         # Grid type
         if num_ori > 0:
-            self.ori_grid = uniform_grid_s2(num_ori)  # [num_ori, 3]
+            # Somewhat redundant but this is done to be compatible with both 2d and 3d
+            self.ori_grid_s1 = uniform_grid_s1(num_ori)
+            self.ori_grid_s2 = uniform_grid_s2(num_ori)
+            
         if radius is not None:
             self.transform = RadiusGraph(radius, loop=True, max_num_neighbors=1000)
 
@@ -67,9 +71,10 @@ class PositionOrientationGraph(BaseTransform):
         Returns:
             torch_geometric.data.Data: Updated graph with added orientation information (graph.ori_grid) and features (graph.f).
         """
-        graph.ori_grid = self.ori_grid.type_as(graph.pos)
-        graph.num_ori = self.num_ori
         graph.n = graph.pos.size(1)
+        graph.ori_grid = (self.ori_grid_s1 if (graph.n == 2) else self.ori_grid_s2).type_as(graph.pos)
+        graph.num_ori = self.num_ori
+        
 
         # Lift input features to spheres
         inputs = []
@@ -96,14 +101,14 @@ class PositionOrientationGraph(BaseTransform):
         pos_s, pos_t = pos[source], pos[target]
         dist = (pos_s - pos_t).norm(dim=-1, keepdim=True)
         ori_t = (pos_s - pos_t) / dist
-        graph.pos = torch.cat([pos_t, ori_t], dim=-1)  # [6D position-orientation element]
+        graph.pos = torch.cat([pos_t, ori_t], dim=-1)  # [4D, or 6D position-orientation element]
         
         # ----------- Lift the edge_index
 
         # First, count number of orientations per base node (how many times a node is connected)
         # In edge_index we took the receiving node as "base node"
         num_base = pos.size(0)
-        num_ori_at_base = edge_index[1].type(torch.float).histc(bins=num_base, min=0, max=num_base - 1).type(torch.int64)
+        num_ori_at_base = edge_index[1].type(torch.float).histc(bins=num_base, min=-0.5, max=num_base - 0.5).type(torch.int64)
 
         # The following is used as lookup table for connecting lifted idx to base idx
         # The corresponding lifted indices
@@ -141,7 +146,7 @@ class PositionOrientationGraph(BaseTransform):
         if hasattr(graph, "x"):    
             inputs.append(graph.x[edge_index[1]])
         if hasattr(graph, "vec"):  
-            inputs.append(torch.einsum('bcd,bd->bc', graph.vec[edge_index[1]], graph.pos[:,3:]))
+            inputs.append(torch.einsum('bcd,bd->bc', graph.vec[edge_index[1]], graph.pos[:,graph.n:]))
         graph.x = torch.cat(inputs, dim=-1)  # [num_lifted_nodes, num_channels]
 
         # ----------- Utility to be able to project back to the base node (e.g. via scatter collect)

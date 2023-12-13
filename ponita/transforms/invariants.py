@@ -1,6 +1,7 @@
 import torch
 from torch_geometric.transforms import BaseTransform
-from ponita.geometry.invariants import invariant_attr_r3, invariant_attr_r3s2_fiber_bundle, invariant_attr_r3s2_point_cloud
+from ponita.geometry.invariants import invariant_attr_r2s1_fiber_bundle, invariant_attr_r2s1_point_cloud
+from ponita.geometry.invariants import invariant_attr_rn, invariant_attr_r3s2_fiber_bundle, invariant_attr_r3s2_point_cloud
 
 
 class SEnInvariantAttributes(BaseTransform):
@@ -38,13 +39,26 @@ class SEnInvariantAttributes(BaseTransform):
                                       local orientations. If separable is False, graph.attr contains
                                       all pair-wise invariants between orientations.
         """
-        graph.dists = invariant_attr_r3(graph.pos[:,:graph.n], graph.edge_index)
-        if self.point_cloud:
-            graph.attr = invariant_attr_r3s2_point_cloud(graph.pos, graph.edge_index)
-            return graph
-        else:
-            if self.separable:
-                graph.attr, graph.fiber_attr = invariant_attr_r3s2_fiber_bundle(graph.pos, graph.ori_grid, graph.edge_index, separable=True)
+        # TODO: make more elegant
+        if graph.n == 2:
+            graph.dists = invariant_attr_rn(graph.pos[:,:graph.n], graph.edge_index)
+            if self.point_cloud:
+                graph.attr = invariant_attr_r2s1_point_cloud(graph.pos, graph.edge_index)
+                return graph
             else:
-                graph.attr = invariant_attr_r3s2_fiber_bundle(graph.pos, graph.ori_grid, graph.edge_index, separable=False)
-            return graph
+                if self.separable:
+                    graph.attr, graph.fiber_attr = invariant_attr_r2s1_fiber_bundle(graph.pos, graph.ori_grid, graph.edge_index, separable=True)
+                else:
+                    graph.attr = invariant_attr_r2s1_fiber_bundle(graph.pos, graph.ori_grid, graph.edge_index, separable=False)
+                return graph
+        else:
+            graph.dists = invariant_attr_rn(graph.pos[:,:graph.n], graph.edge_index)
+            if self.point_cloud:
+                graph.attr = invariant_attr_r3s2_point_cloud(graph.pos, graph.edge_index)
+                return graph
+            else:
+                if self.separable:
+                    graph.attr, graph.fiber_attr = invariant_attr_r3s2_fiber_bundle(graph.pos, graph.ori_grid, graph.edge_index, separable=True)
+                else:
+                    graph.attr = invariant_attr_r3s2_fiber_bundle(graph.pos, graph.ori_grid, graph.edge_index, separable=False)
+                return graph
