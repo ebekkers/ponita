@@ -83,7 +83,7 @@ class PONITA_QM9(pl.LightningModule):
         self.train_metric(pred * self.scale + self.shift, graph.y)
         return loss
 
-    def on_training_epoch_end(self):
+    def on_train_epoch_end(self):
         self.log("train MAE", self.train_metric, prog_bar=True)
 
     def validation_step(self, graph, batch_idx):
