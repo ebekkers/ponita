@@ -86,84 +86,83 @@ class PositionOrientationGraph(BaseTransform):
         return graph
 
     def to_po_point_cloud(self, graph):
-        with torch.no_grad():
-            graph.n = graph.pos.size(1)
-            
-            # -----------  The relevant items in the original graph
+        graph.n = graph.pos.size(1)
+        
+        # -----------  The relevant items in the original graph
 
-            # We should remove self-loops because those cannot define directions
-            input_edge_index = remove_self_loops(coalesce(graph.edge_index, num_nodes=graph.num_nodes))[0]
-            # The other relevant items
-            pos = graph.pos
-            batch = graph.batch
-            source, target = input_edge_index
+        # We should remove self-loops because those cannot define directions
+        input_edge_index = remove_self_loops(coalesce(graph.edge_index, num_nodes=graph.num_nodes))[0]
+        # The other relevant items
+        pos = graph.pos
+        batch = graph.batch
+        source, target = input_edge_index
 
-            # ----------- Lifted positions (each original edge now becomes a node)
-            
-            # Compute direction vectors from the edge_index
-            pos_s, pos_t = pos[source], pos[target]
-            dist = (pos_s - pos_t).norm(dim=-1, keepdim=True)
-            ori_t = (pos_s - pos_t) / dist
-            
-            # Target position as base node
-            graph.pos = torch.cat([pos_t, ori_t], dim=-1)  # [4D, or 6D position-orientation element]
-            
-            # Each edge in the original graph will become a new node with the following index
-            lifted_index = torch.arange(source.size(0), device=source.device)  # lifted idx
-            
-            # ----------- Lift the edge_index
+        # ----------- Lifted positions (each original edge now becomes a node)
+        
+        # Compute direction vectors from the edge_index
+        pos_s, pos_t = pos[source], pos[target]
+        dist = (pos_s - pos_t).norm(dim=-1, keepdim=True)
+        ori_t = (pos_s - pos_t) / dist
+        
+        # Target position as base node
+        graph.pos = torch.cat([pos_t, ori_t], dim=-1)  # [4D, or 6D position-orientation element]
+        
+        # Each edge in the original graph will become a new node with the following index
+        lifted_index = torch.arange(source.size(0), device=source.device)  # lifted idx
+        
+        # ----------- Lift the edge_index
 
-            # For the new_edge_index we do allow for self-interactions
-            base_edge_index = coalesce(add_self_loops(input_edge_index)[0])
-            base_source = base_edge_index[0]
-            base_target = base_edge_index[1]
+        # For the new_edge_index we do allow for self-interactions
+        base_edge_index = coalesce(add_self_loops(input_edge_index)[0])
+        base_source = base_edge_index[0]
+        base_target = base_edge_index[1]
 
-            # The following is used as lookup table for connecting lifted idx to base idx
-            # We use SparseTensor for this, which codes the triplets (row_idx, col_idx, value)
-            # Here we define the triplet as (base_idx, the_original_node_sending_to_this, lifted_idx)
-            # In particular the combination base_idx -> lifted_idx is going to be useful to lookup which
-            # lifted nodes are associated with a base node
-            num_base = pos.size(0)
-            baseidx_source_liftidx = SparseTensor(row=target, col=source, value=lifted_index, sparse_sizes=(num_base, num_base))
+        # The following is used as lookup table for connecting lifted idx to base idx
+        # We use SparseTensor for this, which codes the triplets (row_idx, col_idx, value)
+        # Here we define the triplet as (base_idx, the_original_node_sending_to_this, lifted_idx)
+        # In particular the combination base_idx -> lifted_idx is going to be useful to lookup which
+        # lifted nodes are associated with a base node
+        num_base = pos.size(0)
+        baseidx_source_liftidx = SparseTensor(row=target, col=source, value=lifted_index, sparse_sizes=(num_base, num_base))
 
-            # Determine the number of lifted_idx at each base node
-            num_ori_at_base = baseidx_source_liftidx.set_value(None).sum(dim=1).to(torch.long)
-            
-            # We now take the base_edge_index as starting point
-            # We take the base indices of this edge_index and look up which lifted points are 
-            # associated with these base indices. This will form the set of sending lifted indices
-            lifted_source = baseidx_source_liftidx[base_source].storage.value()  # [648000 = 72000 * 9]
-            
-            # Then check the base nodes at the receiving end
-            base_target = base_target.repeat_interleave(num_ori_at_base[base_source])  # [64800]
-            
-            # Lookup all the lifted indices at the receiving (target) node
-            lifted_target = baseidx_source_liftidx[base_target].storage.value()  # [5832000 = 648000 * 9]
-            
-            # Repeat the lifted source the number of times that it has to send to the receiving target
-            lifted_source = lifted_source.repeat_interleave(num_ori_at_base[base_target])
-            
-            # Now we're done
-            lifted_edge_index = torch.stack([lifted_source, lifted_target])
-            graph.edge_index = lifted_edge_index
+        # Determine the number of lifted_idx at each base node
+        num_ori_at_base = baseidx_source_liftidx.set_value(None).sum(dim=1).to(torch.long)
+        
+        # We now take the base_edge_index as starting point
+        # We take the base indices of this edge_index and look up which lifted points are 
+        # associated with these base indices. This will form the set of sending lifted indices
+        lifted_source = baseidx_source_liftidx[base_source].storage.value()  # [648000 = 72000 * 9]
+        
+        # Then check the base nodes at the receiving end
+        base_target = base_target.repeat_interleave(num_ori_at_base[base_source])  # [64800]
+        
+        # Lookup all the lifted indices at the receiving (target) node
+        lifted_target = baseidx_source_liftidx[base_target].storage.value()  # [5832000 = 648000 * 9]
+        
+        # Repeat the lifted source the number of times that it has to send to the receiving target
+        lifted_source = lifted_source.repeat_interleave(num_ori_at_base[base_target])
+        
+        # Now we're done
+        lifted_edge_index = torch.stack([lifted_source, lifted_target])
+        graph.edge_index = lifted_edge_index
 
-            # ----------- Lift the batch
+        # ----------- Lift the batch
 
-            if hasattr(graph, "batch"):
-                if graph.batch is not None:
-                    graph.batch = batch[input_edge_index[1]].clone().contiguous()
+        if hasattr(graph, "batch"):
+            if graph.batch is not None:
+                graph.batch = batch[input_edge_index[1]].clone().contiguous()
 
-            # ----------- Lift the scalar and vector features, overwrite x
-            inputs = []
-            if hasattr(graph, "x"):    
-                inputs.append(graph.x[input_edge_index[1]])
-            if hasattr(graph, "vec"):  
-                inputs.append(torch.einsum('bcd,bd->bc', graph.vec[input_edge_index[1]], graph.pos[:,graph.n:]))
-            graph.x = torch.cat(inputs, dim=-1)  # [num_lifted_nodes, num_channels]
+        # ----------- Lift the scalar and vector features, overwrite x
+        inputs = []
+        if hasattr(graph, "x"):    
+            inputs.append(graph.x[input_edge_index[1]])
+        if hasattr(graph, "vec"):  
+            inputs.append(torch.einsum('bcd,bd->bc', graph.vec[input_edge_index[1]], graph.pos[:,graph.n:]))
+        graph.x = torch.cat(inputs, dim=-1)  # [num_lifted_nodes, num_channels]
 
-            # ----------- Utility to be able to project back to the base node (e.g. via scatter collect)
+        # ----------- Utility to be able to project back to the base node (e.g. via scatter collect)
 
-            graph.scatter_projection_index = input_edge_index[1]
+        graph.scatter_projection_index = input_edge_index[1]
         
 
         return graph
