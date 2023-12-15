@@ -6,7 +6,7 @@ import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
 from torch_geometric.data import Batch
-from ponita.transforms.random_rotate import RandomRotate3D
+from ponita.transforms.random_rotate import RandomRotate
 
 
 class PONITA_MNIST(pl.LightningModule):
@@ -17,19 +17,21 @@ class PONITA_MNIST(pl.LightningModule):
         super().__init__()
 
         # Store some of the relevant args
-        self.repeats = args.repeats
         self.lr = args.lr
         self.weight_decay = args.weight_decay
         self.epochs = args.epochs
         self.warmup = args.warmup
         if args.layer_scale == 0.:
             args.layer_scale = None
+
+        # For rotation augmentations during training and testing
+        self.train_augm = args.train_augm
+        self.rotation_transform = RandomRotate(['pos'], n=2)
         
         # The metrics to log
         self.train_metric = torchmetrics.Accuracy(task='multiclass', num_classes=10)
         self.valid_metric = torchmetrics.Accuracy(task='multiclass', num_classes=10)
         self.test_metric = torchmetrics.Accuracy(task='multiclass', num_classes=10)
-        self.test_metrics = nn.ModuleList([torchmetrics.Accuracy(task='multiclass', num_classes=10) for r in range(self.repeats)])
 
         # Input/output specifications:
         in_channels_scalar = 1  # gray value
@@ -59,6 +61,8 @@ class PONITA_MNIST(pl.LightningModule):
         return pred
 
     def training_step(self, graph):
+        if self.train_augm:
+            graph = self.rotation_transform(graph)
         pred = self(graph)
         pred = torch.nn.functional.log_softmax(pred, dim=-1)
         loss = torch.nn.functional.nll_loss(pred, graph.y)

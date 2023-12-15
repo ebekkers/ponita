@@ -73,11 +73,7 @@ if __name__ == "__main__":
     # Train settings
     parser.add_argument('--train_augm', type=eval, default=True,
                         help='whether or not to use random rotations during training')
-    
-    # Test settings
-    parser.add_argument('--repeats', type=int, default=5,
-                        help='number of repeated forward passes at test-time')
-    
+        
     # QM9 Dataset
     parser.add_argument('--root', type=str, default="datasets/mnist",
                         help='Data set location')
@@ -89,7 +85,7 @@ if __name__ == "__main__":
                         help='enable self interactions')
     
     # PONTA model settings
-    parser.add_argument('--num_ori', type=int, default=12,
+    parser.add_argument('--num_ori', type=int, default=8,
                         help='num elements of spherical grid')
     parser.add_argument('--hidden_dim', type=int, default=128,
                         help='internal feature dimension')

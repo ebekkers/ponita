@@ -6,7 +6,7 @@ import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
 from torch_geometric.data import Batch
-from ponita.transforms.random_rotate import RandomRotate3D
+from ponita.transforms.random_rotate import RandomRotate
 
 
 class PONITA_MD17(pl.LightningModule):
@@ -28,7 +28,7 @@ class PONITA_MD17(pl.LightningModule):
 
         # For rotation augmentations during training and testing
         self.train_augm = args.train_augm
-        self.rotation_transform = RandomRotate3D(['pos','force'])
+        self.rotation_transform = RandomRotate(['pos','force'], n=3)
         
         # Shift and scale before callibration
         self.shift = 0.

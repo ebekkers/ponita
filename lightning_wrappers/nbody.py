@@ -3,7 +3,7 @@ import torch
 import torchmetrics
 from models.ponita import PonitaFiberBundle
 from .scheduler import CosineWarmupScheduler
-from ponita.transforms.random_rotate import RandomRotate3D
+from ponita.transforms.random_rotate import RandomRotate
 
 
 class PONITA_NBODY(pl.LightningModule):
@@ -22,7 +22,7 @@ class PONITA_NBODY(pl.LightningModule):
 
         # For rotation augmentations during training and testing
         self.train_augm = args.train_augm
-        self.rotation_transform = RandomRotate3D(['pos','vec','y'])
+        self.rotation_transform = RandomRotate(['pos','vec','y'], n=3)
 
         # The metrics to log
         self.train_metric = torchmetrics.MeanSquaredError()
