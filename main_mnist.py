@@ -7,12 +7,42 @@ from torch_geometric.loader import DataLoader
 import pytorch_lightning as pl
 from lightning_wrappers.callbacks import EMA, EpochTimer
 from lightning_wrappers.mnist import PONITA_MNIST
-
+from torch_geometric.transforms import BaseTransform, KNNGraph, Compose
 
 # TODO: do we need this?
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
+
+class Sparsify(BaseTransform):
+    def __init__(self, threshold=0.5):
+        super().__init__()
+        self.threshold = threshold
+
+    def __call__(self, graph):
+        select = graph.x[:,0] > self.threshold
+        graph.x = graph.x[select]
+        graph.pos = graph.pos[select]
+        if graph.batch is not None:
+            graph.batch = graph.batch[select]
+        graph.edge_index = None
+        return graph
+    
+from torch_geometric.transforms import BaseTransform
+class RemoveDuplicatePoints(BaseTransform):
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, graph):
+        dists = (graph.pos[:,None,:] - graph.pos[None,:,:]).norm(dim=-1)
+        dists = dists + 100. * torch.tril(torch.ones_like(dists), diagonal=0)
+        min_dists = dists.min(dim=1)[0]
+        select = min_dists > 0.
+        graph.x = graph.x[select]
+        graph.pos = graph.pos[select]
+        graph.edge_index = None
+        return graph
+    
 
 # ------------------------ Start of the main experiment script
 if __name__ == "__main__":
@@ -23,7 +53,7 @@ if __name__ == "__main__":
     # Run parameters
     parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs')
-    parser.add_argument('--warmup', type=int, default=1,
+    parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
     parser.add_argument('--batch_size', type=int, default=96,
                         help='Batch size. Does not scale with number of gpus.')
@@ -31,7 +61,7 @@ if __name__ == "__main__":
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
-    parser.add_argument('--log', type=eval, default=True,
+    parser.add_argument('--log', type=eval, default=False,
                         help='logging flag')
     parser.add_argument('--enable_progress_bar', type=eval, default=True,
                         help='enable progress bar')
@@ -97,13 +127,10 @@ if __name__ == "__main__":
     # ------------------------ Dataset
     
     # Load the dataset and set the dataset specific settings
-    from torch_geometric.transforms import KNNGraph
-    transform = KNNGraph(k=5, loop=False)
-    # transform = None
+    # transform = Compose([RemoveDuplicatePoints(), KNNGraph(k=4, loop=False)])
+    transform = None
     dataset_train = MNISTSuperpixels(root=args.root, train=True, transform=transform)
     dataset_test = MNISTSuperpixels(root=args.root, train=False, transform=transform)
-    # dataset_train.data.x = dataset_train.data.x - 0.5
-    # dataset_test.data.x = dataset_test.data.x - 0.5
     
     # Create train, val, test splits
     train_size = int(0.9 * len(dataset_train))
