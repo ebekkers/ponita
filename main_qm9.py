@@ -33,7 +33,7 @@ if __name__ == "__main__":
                         help='weight decay')
     parser.add_argument('--log', type=eval, default=True,
                         help='logging flag')
-    parser.add_argument('--enable_progress_bar', type=eval, default=False,
+    parser.add_argument('--enable_progress_bar', type=eval, default=True,
                         help='enable progress bar')
     parser.add_argument('--num_workers', type=int, default=0,
                         help='Num workers in dataloader')
@@ -55,7 +55,7 @@ if __name__ == "__main__":
                         help='MD17 target')
     
     # Graph connectivity settings
-    parser.add_argument('--radius', type=eval, default=None,
+    parser.add_argument('--radius', type=eval, default=1000.,
                         help='radius for the radius graph construction in front of the force loss')
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
@@ -63,13 +63,13 @@ if __name__ == "__main__":
     # PONTA model settings
     parser.add_argument('--num_ori', type=int, default=-1,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=256,
+    parser.add_argument('--hidden_dim', type=int, default=128,
                         help='internal feature dimension')
     parser.add_argument('--basis_dim', type=int, default=256,
                         help='number of basis functions')
     parser.add_argument('--degree', type=int, default=3,
                         help='degree of the polynomial embedding')
-    parser.add_argument('--layers', type=int, default=11,
+    parser.add_argument('--layers', type=int, default=5,
                         help='Number of message passing layers')
     parser.add_argument('--widening_factor', type=int, default=4,
                         help='Number of message passing layers')
