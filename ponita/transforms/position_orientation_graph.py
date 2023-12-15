@@ -49,6 +49,8 @@ class PositionOrientationGraph(BaseTransform):
         """
         if self.num_ori == -1:
             graph = self.to_po_point_cloud(graph)
+        elif self.num_ori == 0:
+            graph = self.to_p_point_cloud(graph)
         else:
             graph = self.to_po_fiber_bundle(graph)
         loop = True  # Hard-code that self-interactions are always present
@@ -166,4 +168,13 @@ class PositionOrientationGraph(BaseTransform):
         
 
         return graph
-        
+    
+    def to_p_point_cloud(self, graph):
+        graph.n = graph.pos.size(1)
+
+        # Otherwise do nothing because the graph is already assumed to be a position point cloud
+        # I.e., it already has graph.pos, graph.x, graph.batch and possibly graph.edge_index
+        # However, we need to add scatter_projection_index for compatibility with the ponita method
+        graph.scatter_projection_index = torch.arange(0,graph.pos.size(0)).type_as(graph.batch)
+
+        return graph

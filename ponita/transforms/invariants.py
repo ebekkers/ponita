@@ -43,7 +43,10 @@ class SEnInvariantAttributes(BaseTransform):
         if graph.n == 2:
             graph.dists = invariant_attr_rn(graph.pos[:,:graph.n], graph.edge_index)
             if self.point_cloud:
-                graph.attr = invariant_attr_r2s1_point_cloud(graph.pos, graph.edge_index)
+                if graph.pos.size(-1) == graph.n: 
+                    graph.attr = graph.dists
+                else:
+                    graph.attr = invariant_attr_r2s1_point_cloud(graph.pos, graph.edge_index)
                 return graph
             else:
                 if self.separable:
@@ -53,8 +56,12 @@ class SEnInvariantAttributes(BaseTransform):
                 return graph
         else:
             graph.dists = invariant_attr_rn(graph.pos[:,:graph.n], graph.edge_index)
+            graph.attr = graph.dists
             if self.point_cloud:
-                graph.attr = invariant_attr_r3s2_point_cloud(graph.pos, graph.edge_index)
+                if graph.pos.size(-1) == graph.n: 
+                    graph.attr = graph.dists
+                else:
+                    graph.attr = invariant_attr_r3s2_point_cloud(graph.pos, graph.edge_index)
                 return graph
             else:
                 if self.separable:
