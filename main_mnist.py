@@ -61,7 +61,7 @@ if __name__ == "__main__":
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
-    parser.add_argument('--log', type=eval, default=False,
+    parser.add_argument('--log', type=eval, default=True,
                         help='logging flag')
     parser.add_argument('--enable_progress_bar', type=eval, default=True,
                         help='enable progress bar')
