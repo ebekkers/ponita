@@ -1,13 +1,17 @@
 import pytorch_lightning as pl
 import torch
+import torch.nn as nn
+from models.ponita import Ponita
 import torchmetrics
-from models.ponita import PonitaFiberBundle
+import numpy as np
 from .scheduler import CosineWarmupScheduler
+from torch_geometric.data import Batch
 from ponita.transforms.random_rotate import RandomRotate
 
 
-class PONITA_NBODY(pl.LightningModule):
-    """Graph Neural Network module"""
+class PONITA_MNIST(pl.LightningModule):
+    """
+    """
 
     def __init__(self, args):
         super().__init__()
@@ -22,63 +26,66 @@ class PONITA_NBODY(pl.LightningModule):
 
         # For rotation augmentations during training and testing
         self.train_augm = args.train_augm
-        self.rotation_transform = RandomRotate(['pos','vec','y'], n=3)
-
+        self.rotation_transform = RandomRotate(['pos'], n=2)
+        
         # The metrics to log
-        self.train_metric = torchmetrics.MeanSquaredError()
-        self.valid_metric = torchmetrics.MeanSquaredError()
-        self.test_metric = torchmetrics.MeanSquaredError()
+        self.train_metric = torchmetrics.Accuracy(task='multiclass', num_classes=10)
+        self.valid_metric = torchmetrics.Accuracy(task='multiclass', num_classes=10)
+        self.test_metric = torchmetrics.Accuracy(task='multiclass', num_classes=10)
 
         # Input/output specifications:
-        in_channels_scalar = 1  # Charge
-        in_channels_vec = 1  # Velocity
-        out_channels_scalar = 0  # None
-        out_channels_vec = 1  # Output velocity
+        in_channels_scalar = 1  # gray value
+        in_channels_vec = 0  # 
+        out_channels_scalar = 10  # The target
+        out_channels_vec = 0  # 
 
         # Make the model
-        self.model = PonitaFiberBundle(in_channels_scalar + in_channels_vec,
+        self.model = Ponita(in_channels_scalar + in_channels_vec,
                         args.hidden_dim,
                         out_channels_scalar,
                         args.layers,
-                        output_dim_vec = out_channels_vec,
+                        output_dim_vec=out_channels_vec,
                         radius=args.radius,
                         num_ori=args.num_ori,
                         basis_dim=args.basis_dim,
                         degree=args.degree,
                         widening_factor=args.widening_factor,
                         layer_scale=args.layer_scale,
-                        task_level='node',
-                        multiple_readouts=args.multiple_readouts)
-        
+                        task_level='graph',
+                        multiple_readouts=args.multiple_readouts,
+                        lift_graph=True)
+    
     def forward(self, graph):
-        _, pred = self.model(graph)
-        return graph.pos + pred[..., 0, :]
+        # Only utilize the scalar (energy) prediction
+        pred, _ = self.model(graph)
+        return pred
 
     def training_step(self, graph):
         if self.train_augm:
             graph = self.rotation_transform(graph)
-        pos_pred = self(graph)
-        loss = torch.mean((pos_pred - graph.y)**2)
-        self.train_metric(pos_pred, graph.y)
+        pred = self(graph)
+        pred = torch.nn.functional.log_softmax(pred, dim=-1)
+        loss = torch.nn.functional.nll_loss(pred, graph.y)
+        self.train_metric(pred, graph.y)
         return loss
 
     def on_train_epoch_end(self):
-        self.log("train MSE", self.train_metric, prog_bar=True)
+        self.log("train ACC", self.train_metric, prog_bar=True)
 
     def validation_step(self, graph, batch_idx):
-        pos_pred = self(graph)
-        self.valid_metric(pos_pred, graph.y)  
+        pred = self(graph)
+        self.valid_metric(pred, graph.y)
 
     def on_validation_epoch_end(self):
-        self.log("valid MSE", self.valid_metric, prog_bar=True)
+        self.log("valid ACC", self.valid_metric, prog_bar=True)
     
     def test_step(self, graph, batch_idx):
-        pos_pred = self(graph)
-        self.test_metric(pos_pred, graph.y)  
+        pred = self(graph)
+        self.test_metric(pred, graph.y)
 
     def on_test_epoch_end(self):
-        self.log("test MSE", self.test_metric)
-
+        self.log("test ACC", self.test_metric, prog_bar=True)
+    
     def configure_optimizers(self):
         """
         Adapted from: https://github.com/karpathy/minGPT/blob/master/mingpt/model.py
@@ -92,7 +99,7 @@ class PONITA_NBODY(pl.LightningModule):
         decay = set()
         no_decay = set()
         whitelist_weight_modules = (torch.nn.Linear, )
-        blacklist_weight_modules = (torch.nn.LayerNorm, torch.nn.Embedding)
+        blacklist_weight_modules = (torch.nn.LazyBatchNorm1d, torch.nn.LayerNorm, torch.nn.Embedding)
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
@@ -127,3 +134,4 @@ class PONITA_NBODY(pl.LightningModule):
         optimizer = torch.optim.Adam(optim_groups, lr=self.lr)
         scheduler = CosineWarmupScheduler(optimizer, self.warmup, self.trainer.max_epochs)
         return {"optimizer": optimizer, "lr_scheduler": scheduler, "monitor": "val_loss"}
+    

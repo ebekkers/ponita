@@ -2,17 +2,47 @@ import argparse
 import os
 import numpy as np
 import torch
-from torch_geometric.datasets import QM9
+from torch_geometric.datasets import MNISTSuperpixels
 from torch_geometric.loader import DataLoader
 import pytorch_lightning as pl
 from lightning_wrappers.callbacks import EMA, EpochTimer
-from lightning_wrappers.qm9 import PONITA_QM9
-
+from lightning_wrappers.mnist import PONITA_MNIST
+from torch_geometric.transforms import BaseTransform, KNNGraph, Compose
 
 # TODO: do we need this?
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
+
+class Sparsify(BaseTransform):
+    def __init__(self, threshold=0.5):
+        super().__init__()
+        self.threshold = threshold
+
+    def __call__(self, graph):
+        select = graph.x[:,0] > self.threshold
+        graph.x = graph.x[select]
+        graph.pos = graph.pos[select]
+        if graph.batch is not None:
+            graph.batch = graph.batch[select]
+        graph.edge_index = None
+        return graph
+    
+from torch_geometric.transforms import BaseTransform
+class RemoveDuplicatePoints(BaseTransform):
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, graph):
+        dists = (graph.pos[:,None,:] - graph.pos[None,:,:]).norm(dim=-1)
+        dists = dists + 100. * torch.tril(torch.ones_like(dists), diagonal=0)
+        min_dists = dists.min(dim=1)[0]
+        select = min_dists > 0.
+        graph.x = graph.x[select]
+        graph.pos = graph.pos[select]
+        graph.edge_index = None
+        return graph
+    
 
 # ------------------------ Start of the main experiment script
 if __name__ == "__main__":
@@ -21,9 +51,9 @@ if __name__ == "__main__":
     # ------------------------ Input arguments
     
     # Run parameters
-    parser.add_argument('--epochs', type=int, default=1000,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs')
-    parser.add_argument('--warmup', type=int, default=10,
+    parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
     parser.add_argument('--batch_size', type=int, default=96,
                         help='Batch size. Does not scale with number of gpus.')
@@ -43,25 +73,19 @@ if __name__ == "__main__":
     # Train settings
     parser.add_argument('--train_augm', type=eval, default=True,
                         help='whether or not to use random rotations during training')
-    
-    # Test settings
-    parser.add_argument('--repeats', type=int, default=5,
-                        help='number of repeated forward passes at test-time')
-    
+        
     # QM9 Dataset
-    parser.add_argument('--root', type=str, default="datasets/qm9",
+    parser.add_argument('--root', type=str, default="datasets/mnist",
                         help='Data set location')
-    parser.add_argument('--target', type=str, default="alpha",
-                        help='MD17 target')
     
     # Graph connectivity settings
-    parser.add_argument('--radius', type=eval, default=1000.,
+    parser.add_argument('--radius', type=eval, default=None,
                         help='radius for the radius graph construction in front of the force loss')
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
     
     # PONTA model settings
-    parser.add_argument('--num_ori', type=int, default=-1,
+    parser.add_argument('--num_ori', type=int, default=8,
                         help='num elements of spherical grid')
     parser.add_argument('--hidden_dim', type=int, default=128,
                         help='internal feature dimension')
@@ -99,20 +123,18 @@ if __name__ == "__main__":
     # ------------------------ Dataset
     
     # Load the dataset and set the dataset specific settings
-    dataset = QM9(root=args.root)
+    # transform = Compose([RemoveDuplicatePoints(), KNNGraph(k=4, loop=False)])
+    transform = None
+    dataset_train = MNISTSuperpixels(root=args.root, train=True, transform=transform)
+    dataset_test = MNISTSuperpixels(root=args.root, train=False, transform=transform)
     
-    # Create train, val, test split (same random seed and splits as DimeNet)
-    random_state = np.random.RandomState(seed=42)
-    perm = torch.from_numpy(random_state.permutation(np.arange(130831)))
-    train_idx, val_idx, test_idx = perm[:110000], perm[110000:120000], perm[120000:]
-    datasets = {'train': dataset[train_idx], 'val': dataset[val_idx], 'test': dataset[test_idx]}
+    # Create train, val, test splits
+    train_size = int(0.9 * len(dataset_train))
+    val_size = len(dataset_train) - train_size
+    dataset_train, dataset_val = torch.utils.data.random_split(dataset_train, [train_size, val_size])
+    datasets = {'train': dataset_train, 'val': dataset_val, 'test': dataset_test}
     
     # Select the right target
-    targets = ['mu', 'alpha', 'homo', 'lumo', 'gap', 'r2', 'zpve', 'U0',
-           'U', 'H', 'G', 'Cv', 'U0_atom', 'U_atom', 'H_atom', 'G_atom', 'A', 'B', 'C']
-    idx = torch.tensor([0, 1, 2, 3, 4, 5, 6, 12, 13, 14, 15, 11, 12, 13, 14, 15])  # We will automatically replace U0 -> U0_atom etc.
-    dataset.data.y = dataset.data.y[:, idx]
-    dataset.data.y = dataset.data.y[:, targets.index(args.target)]
 
     # Make the dataloaders
     dataloaders = {
@@ -120,12 +142,11 @@ if __name__ == "__main__":
         for split, dataset in datasets.items()}
     
     # ------------------------ Load and initialize the model
-    model = PONITA_QM9(args)
-    model.set_dataset_statistics(datasets['train'])
+    model = PONITA_MNIST(args)
 
     # ------------------------ Weights and Biases logger
     if args.log:
-        logger = pl.loggers.WandbLogger(project="PONITA-QM9", name=args.target.replace(" ", "_"), config=args, save_dir='logs')
+        logger = pl.loggers.WandbLogger(project="PONITA-MNIST", name=None, config=args, save_dir='logs')
     else:
         logger = None
 
@@ -136,7 +157,7 @@ if __name__ == "__main__":
     
     # Pytorch lightning call backs
     callbacks = [EMA(0.99),
-                 pl.callbacks.ModelCheckpoint(monitor='valid MAE', mode = 'min'),
+                 pl.callbacks.ModelCheckpoint(monitor='valid ACC', mode = 'max'),
                  EpochTimer()]
     if args.log: callbacks.append(pl.callbacks.LearningRateMonitor(logging_interval='epoch'))
     

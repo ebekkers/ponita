@@ -1,12 +1,12 @@
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from models.ponita import PonitaFiberBundle
+from models.ponita import Ponita
 import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
 from torch_geometric.data import Batch
-from ponita.transforms.random_rotate import RandomRotate3D
+from ponita.transforms.random_rotate import RandomRotate
 
 
 class PONITA_MD17(pl.LightningModule):
@@ -28,7 +28,7 @@ class PONITA_MD17(pl.LightningModule):
 
         # For rotation augmentations during training and testing
         self.train_augm = args.train_augm
-        self.rotation_transform = RandomRotate3D(['pos','force'])
+        self.rotation_transform = RandomRotate(['pos','force'], n=3)
         
         # Shift and scale before callibration
         self.shift = 0.
@@ -49,7 +49,7 @@ class PONITA_MD17(pl.LightningModule):
         out_channels_vec = 0  # Output velocity
 
         # Make the model
-        self.model = PonitaFiberBundle(in_channels_scalar + in_channels_vec,
+        self.model = Ponita(in_channels_scalar + in_channels_vec,
                         args.hidden_dim,
                         out_channels_scalar,
                         args.layers,
@@ -61,7 +61,8 @@ class PONITA_MD17(pl.LightningModule):
                         widening_factor=args.widening_factor,
                         layer_scale=args.layer_scale,
                         task_level='graph',
-                        multiple_readouts=args.multiple_readouts)
+                        multiple_readouts=args.multiple_readouts,
+                        lift_graph=True)
 
     def set_dataset_statistics(self, dataset):
         ys = np.array([data.energy.item() for data in dataset])
@@ -89,11 +90,12 @@ class PONITA_MD17(pl.LightningModule):
     @torch.enable_grad()
     def pred_energy_and_force(self, graph):
         graph.pos = torch.autograd.Variable(graph.pos, requires_grad=True)
+        pos = graph.pos
         pred_energy = self(graph)
         sign = -1.0
         pred_force = sign * torch.autograd.grad(
             pred_energy,
-            graph.pos,
+            pos,
             grad_outputs=torch.ones_like(pred_energy),
             create_graph=True,
             retain_graph=True
