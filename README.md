@@ -10,19 +10,19 @@ This repository contains the code for the paper [Fast, Expressive SE(n) Equivari
 PONITA is an acronym for Position-Orientation space Networks based on InvarianT Attributes. We believe this acronym is apt for the method for two reasons. Firstly, PONITA sounds like "bonita" ✨ which means pretty in Spanish, we personally think the architecture is pretty and elegant. Secondly, [Ponyta](https://bulbapedia.bulbagarden.net/wiki/Ponyta_(Pok%C3%A9mon)) 🐴 🔥 is a fire Pokémon which is known to be very fast, our method is fast as well.
 
 ## About the implementation
-The PONITA model is provided in ```models/ponita.py```. In the forward pass it assumes a graph object with attributes ```graph.x``` which are the scalar features at each node, ```graph.pos``` their corresponding positions, and ```graph.y``` which are the targets at node level (```task_level='node'```) or at graph level (```task_level='graph'```). Optionally, the model can also take as input ```graph.vec``` which are vector features attached to each node. The model will always return two outputs: scalar ```output_scalar``` and ```output_vector```, in case no scalar or vector outputs are specified they will take on the value ```None```. Finally, an ```edge_index``` should be provided (in the form "source_to_target"). Eitherway, a connectiviy ```radius``` parameter should also be provided in order to window the convolution kernels (default is 1000 which means effectively the graph is fully connected).
+The PONITA model is provided in ```models/ponita.py```. In the forward pass it assumes a graph object with attributes ```graph.x``` which are the scalar features at each node, ```graph.pos``` their corresponding positions, and ```graph.y``` which are the targets at node level (```task_level='node'```) or at graph level (```task_level='graph'```). Optionally, the model can also take as input ```graph.vec``` which are vector features attached to each node. The model will always return two outputs: scalar ```output_scalar``` and ```output_vector```, in case no scalar or vector outputs are specified they will take on the value ```None```. Finally, an ```edge_index``` should be provided (in the form "source_to_target"). A connectiviy ```radius``` parameter can be provided in order to window the convolution kernels (default is None which means effectively the graph is fully connected, or the original edge_index is provided).
 
 We relied on [torch geometric](https://pytorch-geometric.readthedocs.io/en/latest/index.html) in our code.
 
 The pieces of code used by PONITA are given in ```ponita/```. The most relevant code specific is given in
-* ```ponita/geoemtry/invariants``` in which the unique and complete invariant attributes are computed
-* ```ponita/nn/convnext``` in which the separable group convolution is implemented.
+* ```ponita/geometry/invariants``` in which the unique and complete invariant attributes are computed
+* ```ponita/nn/conv``` in which the (separable) group convolution is implemented.
 * ```ponita/utils/to_from_sphere``` in which functions are give to embed scalars or vectors as a spherical signal and the other way around
 
 ## Testing PONITA
 The paper results can be reproduced by running the following command for rMD17:
 
-```python3 main_md17```
+```python3 main_md17.py```
 
 We did a sweep over all "revised *" targets and the seeds 0, 1, 2. Otherwise the defaut settings in ```main.py``` are used.
 

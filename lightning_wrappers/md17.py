@@ -1,12 +1,12 @@
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from models.ponita import PONITA
+from models.ponita import Ponita
 import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
 from torch_geometric.data import Batch
-from ponita.transforms.random_rotate import RandomRotate3D
+from ponita.transforms.random_rotate import RandomRotate
 
 
 class PONITA_MD17(pl.LightningModule):
@@ -28,7 +28,7 @@ class PONITA_MD17(pl.LightningModule):
 
         # For rotation augmentations during training and testing
         self.train_augm = args.train_augm
-        self.rotation_transform = RandomRotate3D(['pos','force'])
+        self.rotation_transform = RandomRotate(['pos','force'], n=3)
         
         # Shift and scale before callibration
         self.shift = 0.
@@ -49,19 +49,20 @@ class PONITA_MD17(pl.LightningModule):
         out_channels_vec = 0  # Output velocity
 
         # Make the model
-        self.model = PONITA(in_channels_scalar + in_channels_vec,
+        self.model = Ponita(in_channels_scalar + in_channels_vec,
                         args.hidden_dim,
                         out_channels_scalar,
                         args.layers,
                         output_dim_vec=out_channels_vec,
                         radius=args.radius,
-                        n=args.n,
+                        num_ori=args.num_ori,
                         basis_dim=args.basis_dim,
                         degree=args.degree,
                         widening_factor=args.widening_factor,
                         layer_scale=args.layer_scale,
                         task_level='graph',
-                        multiple_readouts=args.multiple_readouts)
+                        multiple_readouts=args.multiple_readouts,
+                        lift_graph=True)
 
     def set_dataset_statistics(self, dataset):
         ys = np.array([data.energy.item() for data in dataset])
@@ -89,11 +90,12 @@ class PONITA_MD17(pl.LightningModule):
     @torch.enable_grad()
     def pred_energy_and_force(self, graph):
         graph.pos = torch.autograd.Variable(graph.pos, requires_grad=True)
+        pos = graph.pos
         pred_energy = self(graph)
         sign = -1.0
         pred_force = sign * torch.autograd.grad(
             pred_energy,
-            graph.pos,
+            pos,
             grad_outputs=torch.ones_like(pred_energy),
             create_graph=True,
             retain_graph=True
@@ -156,6 +158,50 @@ class PONITA_MD17(pl.LightningModule):
             self.log("test MAE (force) x"+str(r+1), self.test_metrics_force[r])
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        """
+        Adapted from: https://github.com/karpathy/minGPT/blob/master/mingpt/model.py
+        This long function is unfortunately doing something very simple and is being very defensive:
+        We are separating out all parameters of the model into two buckets: those that will experience
+        weight decay for regularization and those that won't (biases, and layernorm/embedding weights).
+        We are then returning the PyTorch optimizer object.
+        """
+
+        # separate out all parameters to those that will and won't experience regularizing weight decay
+        decay = set()
+        no_decay = set()
+        whitelist_weight_modules = (torch.nn.Linear, )
+        blacklist_weight_modules = (torch.nn.LayerNorm, torch.nn.Embedding)
+        for mn, m in self.named_modules():
+            for pn, p in m.named_parameters():
+                fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
+                # random note: because named_modules and named_parameters are recursive
+                # we will see the same tensors p many many times. but doing it this way
+                # allows us to know which parent module any tensor p belongs to...
+                if pn.endswith('bias'):
+                    # all biases will not be decayed
+                    no_decay.add(fpn)
+                elif pn.endswith('weight') and isinstance(m, whitelist_weight_modules):
+                    # weights of whitelist modules will be weight decayed
+                    decay.add(fpn)
+                elif pn.endswith('weight') and isinstance(m, blacklist_weight_modules):
+                    # weights of blacklist modules will NOT be weight decayed
+                    no_decay.add(fpn)
+                elif pn.endswith('layer_scale'):
+                    no_decay.add(fpn)
+
+        # validate that we considered every parameter
+        param_dict = {pn: p for pn, p in self.named_parameters()}
+        inter_params = decay & no_decay
+        union_params = decay | no_decay
+        assert len(inter_params) == 0, "parameters %s made it into both decay/no_decay sets!" % (str(inter_params), )
+        assert len(param_dict.keys() - union_params) == 0, "parameters %s were not separated into either decay/no_decay set!" \
+                                                    % (str(param_dict.keys() - union_params), )
+
+        # create the pytorch optimizer object
+        optim_groups = [
+            {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": self.weight_decay},
+            {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
+        ]
+        optimizer = torch.optim.Adam(optim_groups, lr=self.lr)
         scheduler = CosineWarmupScheduler(optimizer, self.warmup, self.trainer.max_epochs)
         return {"optimizer": optimizer, "lr_scheduler": scheduler, "monitor": "val_loss"}

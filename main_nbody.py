@@ -13,6 +13,7 @@ from lightning_wrappers.nbody import PONITA_NBODY
 
 def make_pyg_loader(dataset, batch_size, shuffle, num_workers, radius, loop):
     data_list = []
+    radius = radius or 1000.
     radius_graph = RadiusGraph(radius, loop=loop, max_num_neighbors=1000)
     for data in dataset:
         loc, vel, edge_attr, charges, loc_end = data
@@ -66,13 +67,13 @@ if __name__ == "__main__":
                     help='nbody_small, nbody')
     
     # Graph connectivity settings
-    parser.add_argument('--radius', type=float, default=1000.0,
+    parser.add_argument('--radius', type=eval, default=None,
                         help='radius for the radius graph construction in front of the force loss')
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
     
     # PONTA model settings    
-    parser.add_argument('--n', type=int, default=16,
+    parser.add_argument('--num_ori', type=int, default=16,
                         help='num elements of spherical grid')
     parser.add_argument('--hidden_dim', type=int, default=128,
                         help='internal feature dimension')
