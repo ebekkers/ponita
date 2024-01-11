@@ -2,12 +2,15 @@ import argparse
 import os
 import numpy as np
 import torch
-from torch_geometric.datasets import MNISTSuperpixels
+
 from torch_geometric.loader import DataLoader
 import pytorch_lightning as pl
 from lightning_wrappers.callbacks import EMA, EpochTimer
-from lightning_wrappers.mnist import PONITA_MNIST
-from torch_geometric.transforms import BaseTransform, KNNGraph, Compose
+from lightning_wrappers.isr import PONITA_ISR
+from torch_geometric.transforms import BaseTransform
+
+from datasets.isr.dataset_isr import ISRDataReader
+from datasets.isr.dataset_isr import PyGDataLoader
 
 # TODO: do we need this?
 import torch.multiprocessing
@@ -74,9 +77,12 @@ if __name__ == "__main__":
     parser.add_argument('--train_augm', type=eval, default=True,
                         help='whether or not to use random rotations during training')
         
-    # QM9 Dataset
-    parser.add_argument('--root', type=str, default="datasets/mnist",
+    # ISR Dataset
+    parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
+    # ISR Dataset
+    parser.add_argument('--n_classes', type=str, default=10,
+                        help='Number of sign classes')
     
     # Graph connectivity settings
     parser.add_argument('--radius', type=eval, default=None,
@@ -123,30 +129,21 @@ if __name__ == "__main__":
     # ------------------------ Dataset
     
     # Load the dataset and set the dataset specific settings
-    # transform = Compose([RemoveDuplicatePoints(), KNNGraph(k=4, loop=False)])
-    transform = None
-    dataset_train = MNISTSuperpixels(root=args.root, train=True, transform=transform)
-    dataset_test = MNISTSuperpixels(root=args.root, train=False, transform=transform)
-    
+    data = ISRDataReader('/home/oline/PONITA_SLR/datasets/isr/', batch_size=32)
+
     # Create train, val, test splits
-    train_size = int(0.9 * len(dataset_train))
-    val_size = len(dataset_train) - train_size
-    dataset_train, dataset_val = torch.utils.data.random_split(dataset_train, [train_size, val_size])
-    datasets = {'train': dataset_train, 'val': dataset_val, 'test': dataset_test}
-    
-    # Select the right target
+
 
     # Make the dataloaders
-    dataloaders = {
-        split: DataLoader(dataset, batch_size=args.batch_size, shuffle=(split == 'train'), num_workers=args.num_workers)
-        for split, dataset in datasets.items()}
+    pyg_loader = PyGDataLoader(data, batch_size=8)
+    pyg_loader.build_loaders()
     
     # ------------------------ Load and initialize the model
-    model = PONITA_MNIST(args)
+    model = PONITA_ISR(args)
 
     # ------------------------ Weights and Biases logger
     if args.log:
-        logger = pl.loggers.WandbLogger(project="PONITA-MNIST", name=None, config=args, save_dir='logs')
+        logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=None, config=args, save_dir='logs')
     else:
         logger = None
 
@@ -166,7 +163,7 @@ if __name__ == "__main__":
                          gradient_clip_val=0.5, accelerator=accelerator, devices=devices, enable_progress_bar=args.enable_progress_bar)
     
     # Do the training
-    trainer.fit(model, dataloaders['train'], dataloaders['val'])
+    trainer.fit(model, pyg_loader.train_loader, pyg_loader.val_loader)
     
     # And test
-    trainer.test(model, dataloaders['test'], ckpt_path = "best")
+    trainer.test(model, pyg_loader.test_loader, ckpt_path = "best")

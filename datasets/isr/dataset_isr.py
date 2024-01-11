@@ -136,10 +136,11 @@ class PyGDataLoader:
     def _load_data(self, data_dict, shuffle = True, split = 'train'): 
         data_list = []
         for id, data in data_dict.items():
-            x = data['node_pos']
+            pos = data['node_pos']
             y = data['label']
             edge_index = torch.tensor(self.inward_edges, dtype=torch.long).t().contiguous()
-            data_list.append(Data(x=x, edge_index=edge_index, y=y))
+            data_list.append(Data(pos = pos, x = pos ,edge_index=edge_index, y=y))
+           
         
         print('Number of ' + split + ' points:', len(data_list))
         
@@ -165,23 +166,3 @@ if __name__ == "__main__":
 
 
 
-
-###############################################################
-def make_pyg_loader(dataset, batch_size, shuffle, num_workers, radius, loop):
-    
-    
-    """
-    data_list = []
-    radius = radius or 1000.
-    radius_graph = RadiusGraph(radius, loop=loop, max_num_neighbors=1000)
-    for data in dataset:
-        loc, vel, edge_attr, charges, loc_end = data
-        x = charges
-        vec = vel[:,None,:]  # [num_pts, num_channels=1, 3]
-        # Build the graph
-        graph = Data(pos=loc, x=x, vec=vec, y=loc_end)
-        graph = radius_graph(graph)
-        # Append to the database list
-        data_list.append(graph)
-    return DataLoader(data_list, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-    """
