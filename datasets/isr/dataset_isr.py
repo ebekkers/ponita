@@ -7,7 +7,7 @@ from torch_geometric.data import Data, DataLoader
 
 
 
-class ISRGraphDataLoader:
+class ISRDataReader:
     def __init__(self, file_path, batch_size):
         self.file_path = os.path.join(file_path, 'subset_metadata.json')
         self.pkl_folder = os.path.join(file_path, 'subset_selection')
@@ -22,12 +22,21 @@ class ISRGraphDataLoader:
         self.train_data, self.val_data, self.test_data = self._load_and_split_data()
 
 
-    def _load_and_split_data(self):
+    def _load_and_split_data(self, seperate_temporal=True):
         metadata = self._load_metadata()
         self.gloss_dict = self._load_gloss_pose_dict(metadata)
         data_dict = self._load_pkl_files()
-
+        
+        # Decouple time and look at each frame as a singular instance
+        if seperate_temporal:
+            data_dict = self.seperate_temporal_dimension(data_dict)
+            data_dict = self.clean_padding(data_dict)
+        print(data_dict)
         return self._split_dataset(data_dict)
+
+    ######################
+    # Reading functionalities
+    ######################
 
     def _load_metadata(self):
         with open(self.file_path, 'r') as file:
@@ -51,12 +60,19 @@ class ISRGraphDataLoader:
                         kps = self._transform_data(graph_data["keypoints"][:, :, :2])
                         data_dict[vid_id] = {'label': gloss, 'node_pos': kps, 'split': split}
         return data_dict
+    
+    ######################
+    # 2. Pre-processing functionalities
+    ######################
 
     def _transform_data(self, kps):
         frames = torch.tensor(np.asarray(kps, dtype=np.float32)).permute(2, 0, 1)
+        # TODO: Introduce the other transformations
         return self._downsample_data(frames)
 
     def _downsample_data(self, frames):
+        """ Downsample pose graph based on the standard node selection from holistic 27 minimal nodes
+        """
         return frames[:, :, self.pose_indexes]
 
     def _split_dataset(self, data_dict):
@@ -64,12 +80,46 @@ class ISRGraphDataLoader:
         val_data = {k: v for k, v in data_dict.items() if v['split'] == 'val'}
         test_data = {k: v for k, v in data_dict.items() if v['split'] == 'test'}
         return train_data, val_data, test_data
+    
+    def seperate_temporal_dimension(self, data_dict):
+        new_data_dict = {}
+    
+        for vid_id, data in data_dict.items():
+            label = data['label']
+            split = data['split']
+            node_pos = data['node_pos']
+            num_frames = node_pos.shape[1]
+
+            for frame_idx in range(num_frames):
+                new_key = f"{vid_id}_f_{frame_idx}"
+                frame_data = node_pos[:, frame_idx, :]
+                new_data_dict[new_key] = {
+                    'label': label,
+                    'node_pos': frame_data,
+                    'split': split
+                }
+
+        return new_data_dict
+    
+    def clean_padding(self, data_dict):
+        """ During pose extraction with mediapipe padding is added for reasons beyond me
+            This function removes all data points where all the node positions are zero
+        """
+        filtered_data_dict = {}
+
+        for key, data in data_dict.items():
+            # Check if all elements in node_pos are zeros
+            if not torch.all(data['node_pos'] == 0):
+                filtered_data_dict[key] = data
+
+        return filtered_data_dict       
+
 
 if __name__ == "__main__":
-    graph_loader = ISRGraphDataLoader('/home/oline/PONITA_SLR/datasets/isr/', batch_size=32)
-    print('Number of training points:', len(graph_loader.train_data))
-    print('Number of validation points:', len(graph_loader.val_data))
-    print('Number of test points:', len(graph_loader.test_data))
+    data = ISRDataReader('/home/oline/PONITA_SLR/datasets/isr/', batch_size=32)
+    print('Number of training points:', len(data.train_data))
+    print('Number of validation points:', len(data.val_data))
+    print('Number of test points:', len(data.test_data))
 
 
 
