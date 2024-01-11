@@ -29,9 +29,9 @@ class PONITA_MNIST(pl.LightningModule):
         self.rotation_transform = RandomRotate(['pos'], n=2)
         
         # The metrics to log
-        self.train_metric = torchmetrics.Accuracy(task='multiclass', num_classes=10)
-        self.valid_metric = torchmetrics.Accuracy(task='multiclass', num_classes=10)
-        self.test_metric = torchmetrics.Accuracy(task='multiclass', num_classes=10)
+        self.train_metric = torchmetrics.Accuracy(task='multiclass', num_classes=args.n_classes)
+        self.valid_metric = torchmetrics.Accuracy(task='multiclass', num_classes=args.n_classes)
+        self.test_metric = torchmetrics.Accuracy(task='multiclass', num_classes=args.n_classes)
 
         # Input/output specifications:
         in_channels_scalar = 1  # gray value
@@ -66,8 +66,6 @@ class PONITA_MNIST(pl.LightningModule):
         pred = self(graph)
         pred = torch.nn.functional.log_softmax(pred, dim=-1)
         loss = torch.nn.functional.nll_loss(pred, graph.y)
-        print(pred.shape)
-        print(graph.y.shape)
         self.train_metric(pred, graph.y)
         return loss
 
