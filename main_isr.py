@@ -55,7 +55,7 @@ if __name__ == "__main__":
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=96,
+    parser.add_argument('--batch_size', type=int, default=5,
                         help='Batch size. Does not scale with number of gpus.')
     parser.add_argument('--lr', type=float, default=5e-4,
                         help='learning rate')
@@ -77,15 +77,15 @@ if __name__ == "__main__":
     # ISR Dataset
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
-    parser.add_argument('--root_metadata', type=str, default="wlasl_new.json",
+    parser.add_argument('--root_metadata', type=str, default="subset_metadata.json",
                         help='Metadata json file location')
-    parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
+    parser.add_argument('--root_poses', type=str, default="subset_selection",
                         help='Pose data dir location')
     # ISR Dataset
-    parser.add_argument('--n_classes', type=str, default=2000,
+    parser.add_argument('--n_classes', type=str, default=10,
                         help='Number of sign classes')
     
-    parser.add_argument('--temporal_configuration', type=str, default="per_frame",
+    parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
     
     # Graph connectivity settings
@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
 
     # Make the dataloaders
-    pyg_loader = PyGDataLoader(data, batch_size=args.batch_size)
+    pyg_loader = PyGDataLoader(data, args)
     pyg_loader.build_loaders()
     
     # ------------------------ Load and initialize the model

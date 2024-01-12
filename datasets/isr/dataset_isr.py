@@ -140,43 +140,7 @@ class ISRDataReader:
                 filtered_data_dict[key] = data
 
         return filtered_data_dict       
-
-
-class PyGDataLoader:
-    def __init__(self, data, batch_size):
-        self.data_dict = data.data_dict
-        self.batch_size = batch_size
-        self.inward_edges = [[2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
-                            [7, 8], [7, 9], [9, 10], [7, 11], [11, 12], [7, 13], [13, 14], 
-                            [7, 15], [15, 16], [17, 18], [17, 19], [19, 20], [17, 21], [21, 22], 
-                            [17, 23], [23, 24], [17, 25], [25, 26]]
-
-    def build_loaders(self):
-        train_data, val_data, test_data = self._split_dataset(self.data_dict)
-        self.train_loader  = self._load_data(train_data)
-        self.val_loader = self._load_data(val_data, shuffle = False, split = 'val')
-        self.test_loader = self._load_data(test_data, shuffle = False, split='test')
-
-    def _split_dataset(self, data_dict):
-        train_data = {k: v for k, v in data_dict.items() if v['split'] == 'train'}
-        val_data = {k: v for k, v in data_dict.items() if v['split'] == 'val'}
-        test_data = {k: v for k, v in data_dict.items() if v['split'] == 'test'}
-        return train_data, val_data, test_data
-
-    def _load_data(self, data_dict, shuffle = True, split = 'train'): 
-        data_list = []
-        for id, data in data_dict.items():
-            pos = data['node_pos'].T
-            y = data['label']
-            edge_index = torch.tensor(self.inward_edges, dtype=torch.long).t().contiguous()
-            data_list.append(Data(pos = pos, x = pos ,edge_index=edge_index, y=y))
-           
-        
-        print('Number of ' + split + ' points:', len(data_list))
-        
-        return DataLoader(data_list, batch_size=self.batch_size, shuffle=shuffle)
     
-
 class SpatioTemporalGraphBuilder:
     def __init__(self, pos_data, inward_edges = None):
         """
@@ -239,6 +203,49 @@ class SpatioTemporalGraphBuilder:
 
 
 
+
+class PyGDataLoader:
+    def __init__(self, data, args):
+        self.data_dict = data.data_dict
+        self.batch_size = args.batch_size
+        self.args = args
+        if args.temporal_configuration == 'per_frame':
+            self.inward_edges = [[2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
+                                [7, 8], [7, 9], [9, 10], [7, 11], [11, 12], [7, 13], [13, 14], 
+                                [7, 15], [15, 16], [17, 18], [17, 19], [19, 20], [17, 21], [21, 22], 
+                                [17, 23], [23, 24], [17, 25], [25, 26]]
+            self.edge_index = torch.tensor(self.inward_edges, dtype=torch.long).t().contiguous()
+
+
+    def build_loaders(self):
+        train_data, val_data, test_data = self._split_dataset(self.data_dict)
+        self.train_loader  = self._load_data(train_data)
+        self.val_loader = self._load_data(val_data, shuffle = False, split = 'val')
+        self.test_loader = self._load_data(test_data, shuffle = False, split='test')
+
+    def _split_dataset(self, data_dict):
+        train_data = {k: v for k, v in data_dict.items() if v['split'] == 'train'}
+        val_data = {k: v for k, v in data_dict.items() if v['split'] == 'val'}
+        test_data = {k: v for k, v in data_dict.items() if v['split'] == 'test'}
+        return train_data, val_data, test_data
+
+    def _load_data(self, data_dict, shuffle = True, split = 'train'): 
+        data_list = []
+        for id, data in data_dict.items():
+            pos = data['node_pos'].T
+            y = data['label']
+            if self.args.temporal_configuration == 'spatio_temporal':
+                self.edge_index = data['edges']
+            data_list.append(Data(pos = pos, x = pos ,edge_index= self.edge_index, y=y))
+           
+        
+        print('Number of ' + split + ' points:', len(data_list))
+        
+        return DataLoader(data_list, batch_size=self.batch_size, shuffle=shuffle)
+    
+
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
@@ -251,7 +258,7 @@ if __name__ == "__main__":
                         help='Pose data dir location')
     parser.add_argument('--batch_size', type=int, default=5,
                         help='Batch size. Does not scale with number of gpus.')
-    parser.add_argument('--temporal_configuration', type=str, default="per_frame",
+    parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
     
     # Arg parser
@@ -260,7 +267,7 @@ if __name__ == "__main__":
     data_dir = os.path.dirname(__file__) + '/' + args.root
     data = ISRDataReader(data_dir, args)
 
-    pyg_loader = PyGDataLoader(data, batch_size=32)
+    pyg_loader = PyGDataLoader(data, args)
     pyg_loader.build_loaders()
 
 
