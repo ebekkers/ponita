@@ -149,7 +149,7 @@ class PyGDataLoader:
 
 
 if __name__ == "__main__":
-    data = ISRDataReader('/home/oline/PONITA_SLR/datasets/isr/', batch_size=32)
+    data = ISRDataReader('/PONITA_SLR/datasets/isr/', batch_size=32)
 
     pyg_loader = PyGDataLoader(data, batch_size=32)
     pyg_loader.build_loaders()
