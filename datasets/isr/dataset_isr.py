@@ -107,7 +107,8 @@ class ISRDataReader:
     
     def build_spatio_temporal_graph(self, data_dict):
         ST_graph_dict = {}
-    
+
+        
         for vid_id, data in data_dict.items():
             label = data['label']
             gloss = data['gloss']
@@ -123,9 +124,10 @@ class ISRDataReader:
                     'edges': reshaped_edges,
                     'split': split
                 }
-            
+    
         
         return ST_graph_dict
+    
     
     def clean_padding(self, data_dict):
         """ During pose extraction with mediapipe padding is added for reasons beyond me
@@ -142,13 +144,15 @@ class ISRDataReader:
         return filtered_data_dict       
     
 class SpatioTemporalGraphBuilder:
-    def __init__(self, pos_data, inward_edges = None):
+    def __init__(self, pos_data, inward_edges = None, reduce_graph = True):
         """
         Initialize the graph builder with a fixed number of nodes and a list of inward edges.
         :param num_nodes: Number of nodes in each frame.
         :param inward_edges: List of edges in the format [source, destination].
         """
         self.pos_data = pos_data
+        if reduce_graph:
+            self.pos_data = self.select_evenly_distributed_frames(self.pos_data, num_frames_to_select=self.args.n_frames)
         self.num_features = self.pos_data.shape[0]
         self.num_frames   = self.pos_data.shape[1]
         self.num_nodes    = self.pos_data.shape[2]
@@ -166,7 +170,16 @@ class SpatioTemporalGraphBuilder:
         self.reshaped_edges = self.build_spatiotemporal_edges()
         self.reshaped_data = self.reshape_nodes()
         
+    def select_evenly_distributed_frames(self, tensor, num_frames_to_select=5):
+        n_frames = tensor.shape[1]
+        
+        # Calculate indices 
+        indices = np.linspace(0, n_frames - 1, num_frames_to_select, dtype=int)
+        
+        # Select the frames using the calculated indices
+        selected_frames = tensor[:, indices, :]
 
+        return selected_frames
             
     def reshape_nodes(self):
         return self.pos_data.reshape(self.pos_data.shape[0], -1)

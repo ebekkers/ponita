@@ -84,9 +84,11 @@ if __name__ == "__main__":
     # ISR Dataset
     parser.add_argument('--n_classes', type=str, default=10,
                         help='Number of sign classes')
-    
     parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
+    # TODO: Find a better way to set this number
+    parser.add_argument('--n_frames', type=float, default=10,
+                        help='Number of frames to use for the spatio temporal graph (max 12)') 
     
     # Graph connectivity settings
     parser.add_argument('--radius', type=eval, default=None,
