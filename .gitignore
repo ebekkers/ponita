@@ -13,6 +13,13 @@ __pycache__/
 # C extensions
 *.so
 
+# Data
+datasets/isr/subset_selection/
+datasets/isr/wlasl_poses_pickle/
+datasets/isr/wlasl_new.json
+datasets/mnist/
+dataset/qm9/
+ 
 # Distribution / packaging
 .Python
 build/

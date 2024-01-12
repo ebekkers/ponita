@@ -1,9 +1,6 @@
 import argparse
 import os
-import numpy as np
 import torch
-
-from torch_geometric.loader import DataLoader
 import pytorch_lightning as pl
 from lightning_wrappers.callbacks import EMA, EpochTimer
 from lightning_wrappers.isr import PONITA_ISR
@@ -58,7 +55,7 @@ if __name__ == "__main__":
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=96,
+    parser.add_argument('--batch_size', type=int, default=5,
                         help='Batch size. Does not scale with number of gpus.')
     parser.add_argument('--lr', type=float, default=5e-4,
                         help='learning rate')
@@ -80,9 +77,16 @@ if __name__ == "__main__":
     # ISR Dataset
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
+    parser.add_argument('--root_metadata', type=str, default="subset_metadata.json",
+                        help='Metadata json file location')
+    parser.add_argument('--root_poses', type=str, default="subset_selection",
+                        help='Pose data dir location')
     # ISR Dataset
     parser.add_argument('--n_classes', type=str, default=10,
                         help='Number of sign classes')
+    
+    parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
+                        help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
     
     # Graph connectivity settings
     parser.add_argument('--radius', type=eval, default=None,
@@ -109,7 +113,7 @@ if __name__ == "__main__":
                         help='Whether or not to readout after every layer')
     
     # Parallel computing stuff
-    parser.add_argument('-g', '--gpus', default=1, type=int,
+    parser.add_argument('-g', '--gpus', default=0, type=int,
                         help='number of gpus to use (assumes all are on one node)')
     
     # Arg parser
@@ -131,13 +135,13 @@ if __name__ == "__main__":
     # Load the dataset and set the dataset specific settings
     
     data_dir = os.path.dirname(__file__) + '/' + args.root
-    data = ISRDataReader(data_dir, batch_size=args.batch_size)
+    data = ISRDataReader(data_dir, args)
 
     # Create train, val, test splits
 
 
     # Make the dataloaders
-    pyg_loader = PyGDataLoader(data, batch_size=args.batch_size)
+    pyg_loader = PyGDataLoader(data, args)
     pyg_loader.build_loaders()
     
     # ------------------------ Load and initialize the model
