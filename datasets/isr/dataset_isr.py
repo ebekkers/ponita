@@ -9,9 +9,10 @@ from torch_geometric.loader import DataLoader
 
 
 class ISRDataReader:
-    def __init__(self, file_path, batch_size):
-        self.file_path = os.path.join(file_path, 'subset_metadata.json')
-        self.pkl_folder = os.path.join(file_path, 'subset_selection')
+    def __init__(self, data_dir, args):
+        batch_size = args.batch_size
+        self.file_path = os.path.join(data_dir, args.root_metadata)
+        self.pkl_folder = os.path.join(data_dir, args.root_poses)
         self.batch_size = batch_size
         self.n_nodes = 27
         # Indexes for reduction of graph nodes
@@ -150,7 +151,7 @@ class PyGDataLoader:
 
 if __name__ == "__main__":
 
-    data = ISRDataReader('/PONITA_SLR/datasets/isr/', batch_size=32)
+    data = ISRDataReader('/home/oline/PONITA_SLR/datasets/isr/', batch_size=32)
 
     pyg_loader = PyGDataLoader(data, batch_size=32)
     pyg_loader.build_loaders()

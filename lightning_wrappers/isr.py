@@ -6,6 +6,7 @@ import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
 from ponita.transforms.random_rotate import RandomRotate
+import os
 
 
 class PONITA_ISR(pl.LightningModule):
@@ -33,9 +34,9 @@ class PONITA_ISR(pl.LightningModule):
         self.test_metric = torchmetrics.Accuracy(task='multiclass', num_classes=args.n_classes)
 
         # Input/output specifications:
-        in_channels_scalar = 0  # What is this if we do not have any node features?
-        in_channels_vec = 2  # 
-        out_channels_scalar = 10  # The target
+        in_channels_scalar = 2  # What is this if we do not have any node features?
+        in_channels_vec = 0  # Positions (Perhaps, if we use position as node features it should be parallel to velocities ) 
+        out_channels_scalar =  args.n_classes # The target
         out_channels_vec = 0  # 
 
         # Make the model

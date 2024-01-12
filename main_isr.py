@@ -80,8 +80,12 @@ if __name__ == "__main__":
     # ISR Dataset
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
+    parser.add_argument('--root_metadata', type=str, default="wlasl_new.json",
+                        help='Metadata json file location')
+    parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
+                        help='Pose data dir location')
     # ISR Dataset
-    parser.add_argument('--n_classes', type=str, default=10,
+    parser.add_argument('--n_classes', type=str, default=2000,
                         help='Number of sign classes')
     
     # Graph connectivity settings
@@ -109,7 +113,7 @@ if __name__ == "__main__":
                         help='Whether or not to readout after every layer')
     
     # Parallel computing stuff
-    parser.add_argument('-g', '--gpus', default=1, type=int,
+    parser.add_argument('-g', '--gpus', default=0, type=int,
                         help='number of gpus to use (assumes all are on one node)')
     
     # Arg parser
@@ -131,7 +135,7 @@ if __name__ == "__main__":
     # Load the dataset and set the dataset specific settings
     
     data_dir = os.path.dirname(__file__) + '/' + args.root
-    data = ISRDataReader(data_dir, batch_size=args.batch_size)
+    data = ISRDataReader(data_dir, args)
 
     # Create train, val, test splits
 
