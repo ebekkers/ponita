@@ -14,7 +14,10 @@ __pycache__/
 *.so
 
 # Data
-datasets/
+datasets/isr/subset_selection/
+datasets/isr/wlasl_poses_pickle/
+datasets/mnist/
+dataset/qm9/
  
 # Distribution / packaging
 .Python
