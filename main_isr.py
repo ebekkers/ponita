@@ -130,8 +130,7 @@ if __name__ == "__main__":
     
     # Load the dataset and set the dataset specific settings
     
-    script_dir = os.path.dirname(__file__)
-    data_dir = os.path.join(script_dir, 'datasets', 'isr')
+    data_dir = os.path.dirname(__file__) + '/' + args.root
     data = ISRDataReader(data_dir, batch_size=args.batch_size)
 
     # Create train, val, test splits
