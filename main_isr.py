@@ -129,13 +129,13 @@ if __name__ == "__main__":
     # ------------------------ Dataset
     
     # Load the dataset and set the dataset specific settings
-    data = ISRDataReader('/home/oline/PONITA_SLR/datasets/isr/', batch_size=32)
+    data = ISRDataReader('/home/oline/PONITA_SLR/datasets/isr/', batch_size=args.batch_size)
 
     # Create train, val, test splits
 
 
     # Make the dataloaders
-    pyg_loader = PyGDataLoader(data, batch_size=8)
+    pyg_loader = PyGDataLoader(data, batch_size=args.batch_size)
     pyg_loader.build_loaders()
     
     # ------------------------ Load and initialize the model
