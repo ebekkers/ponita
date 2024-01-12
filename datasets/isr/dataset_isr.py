@@ -11,6 +11,7 @@ from torch_geometric.loader import DataLoader
 class ISRDataReader:
     def __init__(self, data_dir, args):
         batch_size = args.batch_size
+        self.args = args
         self.file_path = os.path.join(data_dir, args.root_metadata)
         self.pkl_folder = os.path.join(data_dir, args.root_poses)
         self.batch_size = batch_size
@@ -114,7 +115,7 @@ class ISRDataReader:
             gloss = data['gloss']
             split = data['split']
             node_pos = data['node_pos']
-            st_builder = SpatioTemporalGraphBuilder(node_pos)
+            st_builder = SpatioTemporalGraphBuilder(node_pos, self.args)
             reshaped_edges = st_builder.reshaped_edges
             reshaped_data = st_builder.reshaped_data
             ST_graph_dict[f"{vid_id}"] = {
@@ -144,14 +145,15 @@ class ISRDataReader:
         return filtered_data_dict       
     
 class SpatioTemporalGraphBuilder:
-    def __init__(self, pos_data, inward_edges = None, reduce_graph = True):
+    def __init__(self, pos_data, args, inward_edges = None):
         """
         Initialize the graph builder with a fixed number of nodes and a list of inward edges.
         :param num_nodes: Number of nodes in each frame.
         :param inward_edges: List of edges in the format [source, destination].
         """
         self.pos_data = pos_data
-        if reduce_graph:
+        self.args = args
+        if args.reduce_graph:
             self.pos_data = self.select_evenly_distributed_frames(self.pos_data, num_frames_to_select=self.args.n_frames)
         self.num_features = self.pos_data.shape[0]
         self.num_frames   = self.pos_data.shape[1]
