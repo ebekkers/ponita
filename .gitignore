@@ -72,6 +72,9 @@ db.sqlite3-journal
 instance/
 .webassets-cache
 
+# Cluster stuff
+*.job
+
 # Scrapy stuff:
 .scrapy
 
