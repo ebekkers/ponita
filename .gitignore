@@ -16,6 +16,7 @@ __pycache__/
 # Data
 datasets/isr/subset_selection/
 datasets/isr/wlasl_poses_pickle/
+datasets/isr/wlasl_new.json
 datasets/mnist/
 dataset/qm9/
  
