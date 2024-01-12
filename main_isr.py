@@ -1,9 +1,6 @@
 import argparse
 import os
-import numpy as np
 import torch
-
-from torch_geometric.loader import DataLoader
 import pytorch_lightning as pl
 from lightning_wrappers.callbacks import EMA, EpochTimer
 from lightning_wrappers.isr import PONITA_ISR
@@ -87,6 +84,9 @@ if __name__ == "__main__":
     # ISR Dataset
     parser.add_argument('--n_classes', type=str, default=2000,
                         help='Number of sign classes')
+    
+    parser.add_argument('--temporal_configuration', type=str, default="per_frame",
+                        help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
     
     # Graph connectivity settings
     parser.add_argument('--radius', type=eval, default=None,
