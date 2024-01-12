@@ -129,7 +129,10 @@ if __name__ == "__main__":
     # ------------------------ Dataset
     
     # Load the dataset and set the dataset specific settings
-    data = ISRDataReader('/PONITA_SLR/datasets/isr/', batch_size=args.batch_size)
+    
+    script_dir = os.path.dirname(__file__)
+    data_dir = os.path.join(script_dir, 'datasets', 'isr')
+    data = ISRDataReader(data_dir, batch_size=args.batch_size)
 
     # Create train, val, test splits
 
