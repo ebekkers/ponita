@@ -136,7 +136,7 @@ class PyGDataLoader:
     def _load_data(self, data_dict, shuffle = True, split = 'train'): 
         data_list = []
         for id, data in data_dict.items():
-            pos = data['node_pos']
+            pos = data['node_pos'].T
             y = data['label']
             edge_index = torch.tensor(self.inward_edges, dtype=torch.long).t().contiguous()
             data_list.append(Data(pos = pos, x = pos ,edge_index=edge_index, y=y))
