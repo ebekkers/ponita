@@ -6,6 +6,7 @@ import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
 from ponita.transforms.random_rotate import RandomRotate
+from datasets.isr.pose_transforms import CenterAndScaleNormalize
 import os
 
 
@@ -27,6 +28,7 @@ class PONITA_ISR(pl.LightningModule):
         # For rotation augmentations during training and testing
         self.train_augm = args.train_augm
         self.rotation_transform = RandomRotate(['pos'], n=2)
+        
         
         # The metrics to log
         self.train_metric = torchmetrics.Accuracy(task='multiclass', num_classes=args.n_classes)
@@ -63,6 +65,7 @@ class PONITA_ISR(pl.LightningModule):
     def training_step(self, graph):
         if self.train_augm:
             graph = self.rotation_transform(graph)
+            #graph = CenterAndScaleNormalize(graph)
         pred = self(graph)
         pred = torch.nn.functional.log_softmax(pred, dim=-1)
         loss = torch.nn.functional.nll_loss(pred, graph.y)

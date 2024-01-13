@@ -52,6 +52,9 @@ class PonitaFiberBundle(nn.Module):
         # For constructing the position-orientation graph and its invariants
         self.transform = Compose([PositionOrientationGraph(num_ori), SEnInvariantAttributes(separable=True)])
 
+        # Drop-out
+        self.dropout = nn.Dropout(0.5)  # Dropout layer
+
         # Activation function to use internally
         act_fn = torch.nn.GELU()
 
@@ -93,6 +96,7 @@ class PonitaFiberBundle(nn.Module):
         readouts = []
         for interaction_layer, readout_layer in zip(self.interaction_layers, self.read_out_layers):
             x = interaction_layer(x, graph.edge_index, edge_attr=kernel_basis, fiber_attr=fiber_kernel_basis, batch=graph.batch)
+            x = self.dropout(x)
             if readout_layer is not None: readouts.append(readout_layer(x))
         readout = sum(readouts) / len(readouts)
         
