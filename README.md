@@ -1,7 +1,5 @@
 # ✨ 🐴 🔥 PONITA 
 
-*Under construction...*
-
 ## What is this repository about?
 This repository contains the code for the paper [Fast, Expressive SE(n) Equivariant Networks through Weight-Sharing in Position-Orientation Space](https://arxiv.org/abs/2310.02970). We propose **PONITA**: a simple fully convolutional SE(n) equivariant architecture. We developed it primarily for 3D point-cloud data, but the method is also applicable to 2D point clouds and 2D/3D images/volumes (though not yet with this repo). PONITA is an equivariant model that does not require working with steerable/Clebsch-Gordan methods, but has the same capabilities in that __it can handle scalars and vectors__ equally well. Moreover, since it does not depend on Clebsch-Gordan tensor products __PONITA is much faster__ than the typical steerable/tensor field network!
 
@@ -46,6 +44,7 @@ The model will always return **two outputs**: scalar ```output_scalar``` and ```
 ----
 ```FiberBundleConv(in_channels, out_channels, attr_dim, bias=True, aggr="add", separable=True, groups=1)```, also found in ```ponita\nn\conv.py``` implements convolution as a ```torch_geometric.nn.MessagePassing``` module over the fiber bundle. Considering the above graph constructions, this module operates on graphs in fiber bundle mode (a grid of orientations at each node). The forward requires a graph with ```graph.x``` (the features) and ```graph.edge_index``` (connecting the spatial base-points) and ```graph.attr``` and ```graph.fiber_attr``` (these are the pair-wise spatial or orientation-spatial attributes, or embeddings thereof), see SEnInvariantAttributes. 
 
+----
 ```ConvNext(channels, conv, act=torch.nn.GELU(), layer_scale=1e-6, widening_factor=4)```, found in ```ponita\nn\convnext```, is a wrapper that turns the convolution layer ```conv``` into a ConvNext block.
 
 ## Reproducing PONITA results
@@ -58,7 +57,7 @@ The paper results can be reproduced by running the following command for rMD17:
 
 We did a sweep over all "revised *" targets and the seeds 0, 1, 2. Otherwise the defaut settings in ```main.py``` are used. By setting ```num_ori=0``` the PNITA results are generated, with ```num_ori = 20``` the PONITA results are generated. The table shows our results compared to one of the seminal works on *steerable* equivariant convolutions: [NEQUIP](https://github.com/mir-group/nequip). Our methods, PNITA for position space convolutions and PONITA for position-orientation space convolutions, are based on invariants only. For comparison to other state-of-the-art-methods see our paper.
 
-| Target | | NEQUIP | PNITA | **PONITA**
+| Target | | NEQUIP | PNITA | PONITA
 |-|-|-|-|-
 | Aspirin        | E | 2.3 | 4.7 | **1.7**
 |                | F | 8.2 | 16.3 | **5.8**
@@ -93,7 +92,7 @@ We did a sweep over seeds 0, 1, 2 with the default parameters in ```main_nbody.p
 |-|-
 | EGNN | 0.0070
 | SEGNN | **0.0043**
-| **PONITA** | **0.0043**
+| PONITA | **0.0043**
 
 ____
 ### QM9 (3D point clouds or position-orientation point clouds)
@@ -106,7 +105,7 @@ We also tested the PONITA architecture for molecular property prediction. For th
 
 Since QM9 provides an ```edge_index``` derived from the covalent bonds, we have an option to treat the **molecules as point clouds in position-orientation space**. This is what we did in the PONITA entry below, where we specified in the code ```num_ori=-1```. As a baseline we compare against the seminal [DimeNet++](https://github.com/gasteigerjo/dimenet), which, like PONITA, processes the molecules via message passing over the edges. For PNITA, the position space method, we found that going to deep hurts performance. Best performance was obtained with ```layers=5``` and ```hidden_dim=128```. For PONITA we obtained best results with ```layers=9``` and a ```hidden_dim=256```. Otherwise the settings were the same and both used a fully connected graph (```radius=1000```). The results are as follows.
 
-| Target | Unit | DimeNet++ | PNITA | **PONITA**
+| Target | Unit | DimeNet++ | PNITA | PONITA
 |-|-|-|-|-
 | $\mu$ | D | 0.0286 | 0.0207 | **0.0115**
 | $\alpha$ | $a_0^3$ | 0.0469 | 0.0602 | **0.0446**
@@ -134,7 +133,7 @@ As a baseline for super-pixel MNIST we take Probabilistic Numeric Convolutional 
 |-|-
 | PNCNN | 1.24 $\pm$ 0.12
 | PNITA | 3.04 $\pm$ 0.09
-| **PONITA** | **1.17** $\pm$ 0.11
+| PONITA | **1.17** $\pm$ 0.11
 
 ## Conda environment
 In order to run the code in this repository install the following conda environment
