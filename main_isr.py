@@ -80,9 +80,9 @@ if __name__ == "__main__":
     ## Data location settings
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
-    parser.add_argument('--root_metadata', type=str, default="wlasl_new.json",
+    parser.add_argument('--root_metadata', type=str, default="subset_metadata.json",
                         help='Metadata json file location')
-    parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
+    parser.add_argument('--root_poses', type=str, default="subset_selection",
                         help='Pose data dir location')
     
     # Classification type settings
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     # PONTA model settings
     parser.add_argument('--num_ori', type=int, default=4,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=128,
+    parser.add_argument('--hidden_dim', type=int, default=64,
                         help='internal feature dimension')
     parser.add_argument('--basis_dim', type=int, default=128,
                         help='number of basis functions')

@@ -142,7 +142,7 @@ class ISRDataReader:
             vid_id: {
                 'label': data['label'],
                 'gloss': data['gloss'],
-                'x': st_builder.landmark_features,
+                'x': st_builder.landmark_features.T,
                 'node_pos': st_builder.reshaped_data,
                 'edges': st_builder.reshaped_edges,
                 'split': data['split']
@@ -160,7 +160,6 @@ class SpatioTemporalGraphBuilder:
         :param num_nodes: Number of nodes in each frame.
         :param inward_edges: List of edges in the format [source, destination].
         """
-        print('Building graph...')
         
         self.pos_data = pos_data
         self.args = args
@@ -187,8 +186,12 @@ class SpatioTemporalGraphBuilder:
             self.inward_edges = inward_edges
         
         self.reshaped_edges = self._build_spatiotemporal_edges()
+        #print(self.reshaped_edges.shape)
         self.reshaped_data = self._reshape_nodes()
+        #print(self.reshaped_data.shape)
         self.landmark_features = self._build_node_features()
+        #print(self.landmark_features.shape)
+        #print('------------------------')
 
     def _select_evenly_distributed_frames(self, tensor, num_frames_to_select=5):
         n_frames = tensor.shape[1]
@@ -285,7 +288,7 @@ class PyGDataLoader:
             x = data['x']
             if self.args.temporal_configuration == 'spatio_temporal':
                 self.edge_index = data['edges']
-            data_list.append(Data(pos = pos, x = x, edge_index= self.edge_index, y=y))
+            data_list.append(Data(pos = pos, x = pos, edge_index= self.edge_index, y=y))
            
         
         print('Number of ' + split + ' points:', len(data_list))
