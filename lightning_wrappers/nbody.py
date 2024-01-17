@@ -1,8 +1,9 @@
-import pytorch_lightning as pl
 import torch
 import torchmetrics
-from models.ponita import PonitaFiberBundle
+import pytorch_lightning as pl
+
 from .scheduler import CosineWarmupScheduler
+from ponita.models.ponita import PonitaFiberBundle
 from ponita.transforms.random_rotate import RandomRotate
 
 
