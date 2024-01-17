@@ -1,5 +1,17 @@
 # ✨ 🐴 🔥 PONITA 
 
+
+## SLR Dataset 
+To download the full dataset
+
+### ASL Pose Data 
+    wget https://zenodo.org/record/6674324/files/WLASL.zip?download=1
+    mv WLASL.zip?download=1 datasets/isr/
+    cd datasets/isr/
+    unzip WLASL.zip?download=1
+    rm WLASL.zip?download=1
+
+
 *Under construction...*
 
 

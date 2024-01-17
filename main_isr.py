@@ -51,21 +51,23 @@ if __name__ == "__main__":
     # ------------------------ Input arguments
     
     # Run parameters
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=400,
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size', type=int, default=16,
                         help='Batch size. Does not scale with number of gpus.')
-    parser.add_argument('--lr', type=float, default=5e-4,
+    parser.add_argument('--lr', type=float, default=7e-4,
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
     parser.add_argument('--log', type=eval, default=True,
                         help='logging flag')
+    parser.add_argument('--model_name', type=str, default='',
+                        help='logging flag')
     parser.add_argument('--enable_progress_bar', type=eval, default=True,
                         help='enable progress bar')
-    parser.add_argument('--num_workers', type=int, default=0,
+    parser.add_argument('--num_workers', type=int, default=6,
                         help='Num workers in dataloader')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed')
@@ -74,23 +76,29 @@ if __name__ == "__main__":
     parser.add_argument('--train_augm', type=eval, default=True,
                         help='whether or not to use random rotations during training')
         
-    # ISR Dataset
+    # ISR Dataset settings
+    ## Data location settings
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
     parser.add_argument('--root_metadata', type=str, default="wlasl_new.json",
                         help='Metadata json file location')
     parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
                         help='Pose data dir location')
-    # ISR Dataset
+    
+    # Classification type settings
     parser.add_argument('--n_classes', type=str, default=2000,
                         help='Number of sign classes')
     parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
+    
+    ## Graph size parameter
+    parser.add_argument('--reduce_graph', type=bool, default=False,
+                        help='Whether or not to reduce the graph to a limited number of frames') 
     # TODO: Find a better way to set this number
-    parser.add_argument('--reduce_graph', type=bool, default=True,
-                        help='') 
     parser.add_argument('--n_frames', type=int, default=10,
                         help='Number of frames to use for the spatio temporal graph (max 12)') 
+    parser.add_argument('--n_nodes', type=int, default=27,
+                        help='Number of nodes to use when reducing the graph - only 27 currently implemented') 
     
     # Graph connectivity settings
     parser.add_argument('--radius', type=eval, default=None,
@@ -99,15 +107,15 @@ if __name__ == "__main__":
                         help='enable self interactions')
     
     # PONTA model settings
-    parser.add_argument('--num_ori', type=int, default=8,
+    parser.add_argument('--num_ori', type=int, default=4,
                         help='num elements of spherical grid')
     parser.add_argument('--hidden_dim', type=int, default=128,
                         help='internal feature dimension')
-    parser.add_argument('--basis_dim', type=int, default=256,
+    parser.add_argument('--basis_dim', type=int, default=128,
                         help='number of basis functions')
     parser.add_argument('--degree', type=int, default=3,
                         help='degree of the polynomial embedding')
-    parser.add_argument('--layers', type=int, default=5,
+    parser.add_argument('--layers', type=int, default=4,
                         help='Number of message passing layers')
     parser.add_argument('--widening_factor', type=int, default=4,
                         help='Number of message passing layers')
@@ -153,7 +161,10 @@ if __name__ == "__main__":
 
     # ------------------------ Weights and Biases logger
     if args.log:
-        logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=None, config=args, save_dir='logs')
+        if args.model_name != '':
+            logger = pl.loggers.WandbLogger(project="PONITA-ISR_pc", name=args.model_name, config=args, save_dir='logs')
+        else:
+            logger = pl.loggers.WandbLogger(project="PONITA-ISR_pc", name=None, config=args, save_dir='logs')
     else:
         logger = None
 

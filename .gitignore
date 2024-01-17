@@ -81,6 +81,7 @@ instance/
 
 # Cluster stuff
 *.job
+*.out
 
 # Scrapy stuff:
 .scrapy
