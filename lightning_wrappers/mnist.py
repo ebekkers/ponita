@@ -1,16 +1,18 @@
-import pytorch_lightning as pl
 import torch
-import torch.nn as nn
-from models.ponita import Ponita
 import torchmetrics
-import numpy as np
+import pytorch_lightning as pl
+
 from .scheduler import CosineWarmupScheduler
-from torch_geometric.data import Batch
+from ponita.models.ponita import Ponita
 from ponita.transforms.random_rotate import RandomRotate
 
 
 class PONITA_MNIST(pl.LightningModule):
     """
+    Lightning wrapper for the PONITA model on the MNIST dataset.
+
+    Args:
+        args (argparse.Namespace): The arguments from the command line.
     """
 
     def __init__(self, args):
