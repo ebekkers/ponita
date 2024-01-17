@@ -51,13 +51,13 @@ if __name__ == "__main__":
     # ------------------------ Input arguments
     
     # Run parameters
-    parser.add_argument('--epochs', type=int, default=200,
+    parser.add_argument('--epochs', type=int, default=400,
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
     parser.add_argument('--batch_size', type=int, default=16,
                         help='Batch size. Does not scale with number of gpus.')
-    parser.add_argument('--lr', type=float, default=5e-4,
+    parser.add_argument('--lr', type=float, default=7e-4,
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
@@ -95,8 +95,10 @@ if __name__ == "__main__":
     parser.add_argument('--reduce_graph', type=bool, default=False,
                         help='Whether or not to reduce the graph to a limited number of frames') 
     # TODO: Find a better way to set this number
-    parser.add_argument('--n_frames', type=float, default=10,
+    parser.add_argument('--n_frames', type=int, default=10,
                         help='Number of frames to use for the spatio temporal graph (max 12)') 
+    parser.add_argument('--n_nodes', type=int, default=27,
+                        help='Number of nodes to use when reducing the graph - only 27 currently implemented') 
     
     # Graph connectivity settings
     parser.add_argument('--radius', type=eval, default=None,
@@ -105,9 +107,9 @@ if __name__ == "__main__":
                         help='enable self interactions')
     
     # PONTA model settings
-    parser.add_argument('--num_ori', type=int, default=8,
+    parser.add_argument('--num_ori', type=int, default=4,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=64,
+    parser.add_argument('--hidden_dim', type=int, default=128,
                         help='internal feature dimension')
     parser.add_argument('--basis_dim', type=int, default=128,
                         help='number of basis functions')
@@ -160,9 +162,9 @@ if __name__ == "__main__":
     # ------------------------ Weights and Biases logger
     if args.log:
         if args.model_name != '':
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR_lr2", name=args.model_name, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="PONITA-ISR_pc", name=args.model_name, config=args, save_dir='logs')
         else:
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR_lr2", name=None, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="PONITA-ISR_pc", name=None, config=args, save_dir='logs')
     else:
         logger = None
 
