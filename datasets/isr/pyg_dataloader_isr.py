@@ -150,16 +150,14 @@ class ISRDataReader:
             graph_dict[vid_id] = {
                 'label': data['label'],
                 'gloss': data['gloss'],
-                'x': graph_constructor.landmark_features[:,:end_idx].T,  # Assuming st_builder is defined and relevant here
-                'node_pos': graph_constructor.reshape_nodes(data['node_pos']),  # Assuming st_builder is defined and relevant here
-                'edges': edges.t().contiguous(),    # Assuming st_builder is defined and relevant here
+                'x': graph_constructor.landmark_features[:,:end_idx].T,  
+                'node_pos': graph_constructor.reshape_nodes(data['node_pos']),  
+                'edges': edges.t().contiguous(),   
                 'split': data['split']
             }
 
-        # The result_dict now contains the same data as the original comprehension
         return graph_dict
         
-  
     
 class SpatioTemporalGraphBuilder:
     def __init__(self, data_dict, args, inward_edges = None):
@@ -168,14 +166,13 @@ class SpatioTemporalGraphBuilder:
         :param num_nodes: Number of nodes in each frame.
         :param inward_edges: List of edges in the format [source, destination].
         """
-        # Find max number of frames
+        # Find max number of frames in dataset
         self.max_n_frames = max(item['node_pos'].shape[1] for item in data_dict.values())
-        self.args = args
+        self.args         = args
         
-        self.N_NODES    = args.n_nodes
+        self.N_NODES          = args.n_nodes
         self.tot_number_nodes = self.max_n_frames * self.N_NODES
 
-        # Set inward edges    
         if inward_edges is None:
             ## Default holistic mediapipe edges
             self.inward_edges = [[2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
@@ -193,21 +190,7 @@ class SpatioTemporalGraphBuilder:
         self._build_spatiotemporal_edges()
         # Build node features    
         self._build_node_features()
-
-    def select_evenly_distributed_frames(self, tensor, num_frames_to_select=5):
-        n_frames = tensor.shape[1]
-        
-        # Calculate indices 
-        indices = np.linspace(0, n_frames - 1, num_frames_to_select, dtype=int)
-        
-        # Select the frames using the calculated indices
-        selected_frames = tensor[:, indices, :]
-
-        return selected_frames
             
-    def reshape_nodes(self, pos_data):
-        return pos_data.reshape(pos_data.shape[0], -1)
-    
     def _build_node_features(self):
         """
         Builds the node features for a given number of frames.
@@ -217,8 +200,6 @@ class SpatioTemporalGraphBuilder:
         identity_matrix = np.eye(self.N_NODES)
         landmark_features = np.tile(identity_matrix, (1, self.max_n_frames))
         self.landmark_features = torch.tensor(landmark_features)
-
-
 
     def _build_spatiotemporal_edges(self):
         """
@@ -250,10 +231,9 @@ class SpatioTemporalGraphBuilder:
 
         self.temporal_edges = torch.tensor(temporal_edges)
     
+    def reshape_nodes(self, pos_data):
+        return pos_data.reshape(pos_data.shape[0], -1)
     
-
-
-
 
 class PyGDataLoader:
     def __init__(self, data, args):
@@ -269,6 +249,7 @@ class PyGDataLoader:
             self.edge_index = torch.tensor(self.inward_edges, dtype=torch.long).t().contiguous()
         
         self.build_loaders()
+
 
     def build_loaders(self):
         train_data, val_data, test_data = self._split_dataset(self.data_dict)
@@ -314,12 +295,8 @@ if __name__ == "__main__":
                         help='Batch size. Does not scale with number of gpus.')
     parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
-        ## Graph size parameter
-    parser.add_argument('--reduce_graph', type=bool, default=False,
-                        help='Whether or not to reduce the graph to a limited number of frames') 
-    # TODO: Find a better way to set this number
-    parser.add_argument('--n_frames', type=float, default=10,
-                        help='Number of frames to use for the spatio temporal graph (max 12)') 
+    
+    ## Graph size parameter
     parser.add_argument('--n_nodes', type=int, default=27,
                         help='Number of nodes to use when reducing the graph - only 27 currently implemented') 
     # Arg parser
