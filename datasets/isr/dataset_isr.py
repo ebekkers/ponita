@@ -14,24 +14,23 @@ class ISRDataReader:
         
         self.args = args
         self.N_NODES = args.n_nodes
-
-        file_path = os.path.join(data_dir, args.root_metadata)
-        pickle_path = os.path.join(data_dir, args.root_poses)
         
-
         # Load metadata
-        metadata = self._load_metadata(file_path)
-        self._load_gloss_pose_dict(metadata)
-        self.data_dict = self._load_pkl_files(pickle_path)
+        file_path = os.path.join(data_dir, args.root_metadata)
+        self._load_metadata(file_path)
+
+        # Load pose data from pickle files 
+        pickle_path = os.path.join(data_dir, args.root_poses)
+        data_dict = self._load_pkl_files(pickle_path)
         
         # Treat each frame as individual data points
         if args.temporal_configuration == 'per_frame':
-            self.data_dict = self._seperate_temporal_dimension(self.data_dict)
+            self.data_dict = self._seperate_temporal_dimension(data_dict)
 
-        
         # Build spatio temporal graph 
         elif args.temporal_configuration == 'spatio_temporal':
-            self.data_dict = self._build_spatio_temporal_graph(self.data_dict)
+            print('Building graphs...')
+            self.data_dict = self._build_spatio_temporal_graph(data_dict)
         
         else:
             raise ValueError('Temporal configuration not recognized')
@@ -41,11 +40,8 @@ class ISRDataReader:
         """ Load the metadata from the json file
         """
         with open(file_path, 'r') as file:
-            return json.load(file)
-
-    def _load_gloss_pose_dict(self, metadata):
-        """ Load the gloss dictionary from the metadata
-        """
+            metadata = json.load(file)
+            
         self.gloss_dict = {}
         for item in metadata:  
             self.gloss_dict.setdefault(item['gloss'], []).extend(
@@ -82,7 +78,7 @@ class ISRDataReader:
         frames = torch.tensor(np.asarray(kps, dtype=np.float32)).permute(2, 0, 1)
         data = self._downsample_data(frames)
 
-        # TODO: Introduce the other transformations
+        # TODO: Load the other transformations
         
         return data
 
@@ -138,43 +134,47 @@ class ISRDataReader:
         :param data_dict: A dictionary containing video data.
         :return: A dictionary containing the spatio-temporal graph data.
         """
-        return {
-            vid_id: {
+        # Build node features and edges for max number of frames
+        graph_constructor = SpatioTemporalGraphBuilder(data_dict, self.args)
+
+        graph_dict = {}
+        for vid_id, data in data_dict.items():
+            n_frames = data['node_pos'].shape[1]
+            end_idx = int(n_frames*self.N_NODES)
+
+            edges = torch.cat(( 
+                    graph_constructor.spatial_edges[:int(n_frames*graph_constructor.n_spatial_edges),:], 
+                    graph_constructor.temporal_edges[:int(self.N_NODES*graph_constructor.n_spatial_edges),:]), dim = 0
+                    )
+            
+            graph_dict[vid_id] = {
                 'label': data['label'],
                 'gloss': data['gloss'],
-                'x': st_builder.landmark_features.T,
-                'node_pos': st_builder.reshaped_data,
-                'edges': st_builder.reshaped_edges,
+                'x': graph_constructor.landmark_features[:,:end_idx].T,  # Assuming st_builder is defined and relevant here
+                'node_pos': graph_constructor.reshape_nodes(data['node_pos']),  # Assuming st_builder is defined and relevant here
+                'edges': edges.t().contiguous(),    # Assuming st_builder is defined and relevant here
                 'split': data['split']
             }
-            for vid_id, data in data_dict.items()
-            for st_builder in [SpatioTemporalGraphBuilder(data['node_pos'], self.args)]
-        }
+
+        # The result_dict now contains the same data as the original comprehension
+        return graph_dict
         
   
     
 class SpatioTemporalGraphBuilder:
-    def __init__(self, pos_data, args, inward_edges = None):
+    def __init__(self, data_dict, args, inward_edges = None):
         """
         Initialize the graph builder with a fixed number of nodes and a list of inward edges.
         :param num_nodes: Number of nodes in each frame.
         :param inward_edges: List of edges in the format [source, destination].
         """
-        
-        self.pos_data = pos_data
+        # Find max number of frames
+        self.max_n_frames = max(item['node_pos'].shape[1] for item in data_dict.values())
         self.args = args
-
-        if args.reduce_graph:
-            self.pos_data = self._select_evenly_distributed_frames(self.pos_data, num_frames_to_select=self.args.n_frames)
-
-        self.num_features = self.pos_data.shape[0]
-        self.num_frames   = self.pos_data.shape[1]
+        
         self.N_NODES    = args.n_nodes
-        
-        assert self.pos_data.shape[2] == self.N_NODES, "wrong configuration of number of nodes"
+        self.tot_number_nodes = self.max_n_frames * self.N_NODES
 
-        self.tot_number_nodes = self.num_frames * self.N_NODES
-        
         # Set inward edges    
         if inward_edges is None:
             ## Default holistic mediapipe edges
@@ -182,18 +182,19 @@ class SpatioTemporalGraphBuilder:
                                 [7, 8], [7, 9], [9, 10], [7, 11], [11, 12], [7, 13], [13, 14], 
                                 [7, 15], [15, 16], [17, 18], [17, 19], [19, 20], [17, 21], [21, 22], 
                                 [17, 23], [23, 24], [17, 25], [25, 26]]
+            
         else:
             self.inward_edges = inward_edges
-        
-        self.reshaped_edges = self._build_spatiotemporal_edges()
-        #print(self.reshaped_edges.shape)
-        self.reshaped_data = self._reshape_nodes()
-        #print(self.reshaped_data.shape)
-        self.landmark_features = self._build_node_features()
-        #print(self.landmark_features.shape)
-        #print('------------------------')
 
-    def _select_evenly_distributed_frames(self, tensor, num_frames_to_select=5):
+        self.n_spatial_edges = len(self.inward_edges)
+        self.n_temporal_edges = self.N_NODES - 1
+
+        # Build spatial and temporal edges
+        self._build_spatiotemporal_edges()
+        # Build node features    
+        self._build_node_features()
+
+    def select_evenly_distributed_frames(self, tensor, num_frames_to_select=5):
         n_frames = tensor.shape[1]
         
         # Calculate indices 
@@ -204,8 +205,8 @@ class SpatioTemporalGraphBuilder:
 
         return selected_frames
             
-    def _reshape_nodes(self):
-        return self.pos_data.reshape(self.pos_data.shape[0], -1)
+    def reshape_nodes(self, pos_data):
+        return pos_data.reshape(pos_data.shape[0], -1)
     
     def _build_node_features(self):
         """
@@ -214,9 +215,8 @@ class SpatioTemporalGraphBuilder:
         :return: A tensor with the node features in the graph.
         """
         identity_matrix = np.eye(self.N_NODES)
-        landmark_features = np.tile(identity_matrix, (1, self.num_frames))
-    
-        return torch.tensor(landmark_features)
+        landmark_features = np.tile(identity_matrix, (1, self.max_n_frames))
+        self.landmark_features = torch.tensor(landmark_features)
 
 
 
@@ -226,28 +226,29 @@ class SpatioTemporalGraphBuilder:
         :param num_frames: The number of frames in the data.
         :return: A tensor representing the edges in the graph.
         """
-        edges = []
+        # TODO
+
+        spatial_edges = []
 
         # Adding spatial edges for each frame
-        for frame in range(self.num_frames):
+        for frame in range(self.max_n_frames):
             frame_offset = frame * self.N_NODES
             for edge in self.inward_edges:
                 n1 = frame_offset + edge[0]
                 n2 = frame_offset + edge[1]
-                edges.append([n1, n2])
-                # Do we need edges both ways?
-                #edges.append([dst, src])  
+                spatial_edges.append([n1, n2])
+
+        self.spatial_edges = torch.tensor(spatial_edges)
 
         # Adding temporal edges
-        for frame in range(self.num_frames - 1):
+        temporal_edges = []
+        for frame in range(self.max_n_frames - 1):
             for node in range(self.N_NODES):
                 n1 = frame * self.N_NODES + node
                 n2 = (frame + 1) * self.N_NODES + node
-                edges.append([n1, n2])
-                
-                #edges.append([dst, src])  # Connecting the node to the next frame
+                temporal_edges.append([n1, n2])
 
-        return torch.tensor(edges).t().contiguous()
+        self.temporal_edges = torch.tensor(temporal_edges)
     
     
 
@@ -266,7 +267,6 @@ class PyGDataLoader:
                                 [7, 15], [15, 16], [17, 18], [17, 19], [19, 20], [17, 21], [21, 22], 
                                 [17, 23], [23, 24], [17, 25], [25, 26]]
             self.edge_index = torch.tensor(self.inward_edges, dtype=torch.long).t().contiguous()
-
 
     def build_loaders(self):
         train_data, val_data, test_data = self._split_dataset(self.data_dict)
