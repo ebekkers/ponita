@@ -89,7 +89,7 @@ if __name__ == "__main__":
     # TODO: Find a better way to set this number
     parser.add_argument('--reduce_graph', type=bool, default=True,
                         help='') 
-    parser.add_argument('--n_frames', type=float, default=10,
+    parser.add_argument('--n_frames', type=int, default=10,
                         help='Number of frames to use for the spatio temporal graph (max 12)') 
     
     # Graph connectivity settings
