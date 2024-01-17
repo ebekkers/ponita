@@ -162,9 +162,9 @@ if __name__ == "__main__":
     # ------------------------ Weights and Biases logger
     if args.log:
         if args.model_name != '':
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR_pc", name=args.model_name, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=args.model_name, config=args, save_dir='logs')
         else:
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR_pc", name=None, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=None, config=args, save_dir='logs')
     else:
         logger = None
 
