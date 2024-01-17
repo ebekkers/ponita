@@ -6,8 +6,8 @@ from lightning_wrappers.callbacks import EMA, EpochTimer
 from lightning_wrappers.isr import PONITA_ISR
 from torch_geometric.transforms import BaseTransform
 
-from datasets.isr.dataset_isr import ISRDataReader
-from datasets.isr.dataset_isr import PyGDataLoader
+from datasets.isr.pyg_dataloader_isr import ISRDataReader
+from datasets.isr.pyg_dataloader_isr import PyGDataLoader
 
 # TODO: do we need this?
 import torch.multiprocessing
@@ -80,9 +80,9 @@ if __name__ == "__main__":
     ## Data location settings
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
-    parser.add_argument('--root_metadata', type=str, default="subset_metadata.json",
+    parser.add_argument('--root_metadata', type=str, default="wlasl_new.json",
                         help='Metadata json file location')
-    parser.add_argument('--root_poses', type=str, default="subset_selection",
+    parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
                         help='Pose data dir location')
     
     # Classification type settings
@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
     # Make the dataloaders
     pyg_loader = PyGDataLoader(data, args)
-    pyg_loader.build_loaders()
+    
     
     # ------------------------ Load and initialize the model
     model = PONITA_ISR(args)
