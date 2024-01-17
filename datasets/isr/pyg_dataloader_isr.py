@@ -266,6 +266,8 @@ class PyGDataLoader:
                                 [7, 15], [15, 16], [17, 18], [17, 19], [19, 20], [17, 21], [21, 22], 
                                 [17, 23], [23, 24], [17, 25], [25, 26]]
             self.edge_index = torch.tensor(self.inward_edges, dtype=torch.long).t().contiguous()
+        
+        self.build_loaders()
 
 
     def build_loaders(self):

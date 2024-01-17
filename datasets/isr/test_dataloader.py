@@ -1,6 +1,6 @@
 import unittest
 import torch 
-from dataset_isr import SpatioTemporalGraphBuilder 
+from datasets.isr.pyg_dataloader_isr import SpatioTemporalGraphBuilder 
 
 class TestSpatioTemporalGraphBuilder(unittest.TestCase):
     
