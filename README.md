@@ -13,7 +13,7 @@ PONITA is an acronym for Position-Orientation space Networks based on InvarianT 
 ## About the implementation
 
 ### The ponita model
-The PONITA model is provided in ```models/ponita.py``` and is designed to support point clouds in 2D and 3D position space $\mathbb{R}^2$ and $\mathbb{R}^3$ out of the box. It further more supports input point clouds in 2D and 3D position-orientation spaces $\mathbb{R}^2 \times S^1$ and $\mathbb{R}^3 \times S^2$. 
+The PONITA model is provided in ```ponita/models/ponita.py``` and is designed to support point clouds in 2D and 3D position space $\mathbb{R}^2$ and $\mathbb{R}^3$ out of the box. It further more supports input point clouds in 2D and 3D position-orientation spaces $\mathbb{R}^2 \times S^1$ and $\mathbb{R}^3 \times S^2$. 
 
 The forward assumes a graph object with attributes
 * ```graph.x```: which are the scalar features at each node, 
