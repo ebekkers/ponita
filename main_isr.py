@@ -6,8 +6,8 @@ from lightning_wrappers.callbacks import EMA, EpochTimer
 from lightning_wrappers.isr import PONITA_ISR
 from torch_geometric.transforms import BaseTransform
 
-from datasets.isr.dataset_isr import ISRDataReader
-from datasets.isr.dataset_isr import PyGDataLoader
+from datasets.isr.pyg_dataloader_isr import ISRDataReader
+from datasets.isr.pyg_dataloader_isr import PyGDataLoader
 
 # TODO: do we need this?
 import torch.multiprocessing
@@ -80,23 +80,18 @@ if __name__ == "__main__":
     ## Data location settings
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
-    parser.add_argument('--root_metadata', type=str, default="wlasl_new.json",
+    parser.add_argument('--root_metadata', type=str, default="subset_metadata.json",
                         help='Metadata json file location')
-    parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
+    parser.add_argument('--root_poses', type=str, default="subset_selection",
                         help='Pose data dir location')
     
     # Classification type settings
-    parser.add_argument('--n_classes', type=str, default=2000,
+    parser.add_argument('--n_classes', type=str, default=10,
                         help='Number of sign classes')
     parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
     
     ## Graph size parameter
-    parser.add_argument('--reduce_graph', type=bool, default=False,
-                        help='Whether or not to reduce the graph to a limited number of frames') 
-    # TODO: Find a better way to set this number
-    parser.add_argument('--n_frames', type=int, default=10,
-                        help='Number of frames to use for the spatio temporal graph (max 12)') 
     parser.add_argument('--n_nodes', type=int, default=27,
                         help='Number of nodes to use when reducing the graph - only 27 currently implemented') 
     
@@ -109,7 +104,7 @@ if __name__ == "__main__":
     # PONTA model settings
     parser.add_argument('--num_ori', type=int, default=4,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=128,
+    parser.add_argument('--hidden_dim', type=int, default=64,
                         help='internal feature dimension')
     parser.add_argument('--basis_dim', type=int, default=128,
                         help='number of basis functions')
@@ -154,7 +149,7 @@ if __name__ == "__main__":
 
     # Make the dataloaders
     pyg_loader = PyGDataLoader(data, args)
-    pyg_loader.build_loaders()
+    
     
     # ------------------------ Load and initialize the model
     model = PONITA_ISR(args)
@@ -162,9 +157,9 @@ if __name__ == "__main__":
     # ------------------------ Weights and Biases logger
     if args.log:
         if args.model_name != '':
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR_pc", name=args.model_name, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=args.model_name, config=args, save_dir='logs')
         else:
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR_pc", name=None, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=None, config=args, save_dir='logs')
     else:
         logger = None
 
