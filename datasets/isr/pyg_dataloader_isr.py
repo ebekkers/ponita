@@ -144,15 +144,19 @@ class ISRDataReader:
 
             edges = torch.cat(( 
                     graph_constructor.spatial_edges[:int(n_frames*graph_constructor.n_spatial_edges),:], 
-                    graph_constructor.temporal_edges[:int(self.N_NODES*graph_constructor.n_spatial_edges),:]), dim = 0
-                    )
+                    graph_constructor.temporal_edges[:int(self.N_NODES*graph_constructor.n_temporal_edges),:]), dim = 0
+                    ).t().contiguous()
             
+            x = graph_constructor.landmark_features[:,:end_idx]
+            pos = graph_constructor.reshape_nodes(data['node_pos']).T
+            
+
             graph_dict[vid_id] = {
                 'label': data['label'],
                 'gloss': data['gloss'],
-                'x': graph_constructor.landmark_features[:,:end_idx].T,  
-                'node_pos': graph_constructor.reshape_nodes(data['node_pos']),  
-                'edges': edges.t().contiguous(),   
+                'x': pos,  
+                'node_pos': pos,  
+                'edges': edges,   
                 'split': data['split']
             }
 
@@ -266,12 +270,12 @@ class PyGDataLoader:
     def _load_data(self, data_dict, shuffle = True, split = 'train'): 
         data_list = []
         for id, data in data_dict.items():
-            pos = data['node_pos'].T
+            pos = data['node_pos']
             y = data['label']
             x = data['x']
             if self.args.temporal_configuration == 'spatio_temporal':
                 self.edge_index = data['edges']
-            data_list.append(Data(pos = pos, x = pos, edge_index= self.edge_index, y=y))
+            data_list.append(Data(pos = pos, x = x, edge_index= self.edge_index, y=y))
            
         
         print('Number of ' + split + ' points:', len(data_list))
