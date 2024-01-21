@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from models.ponita import Ponita
+from ponita.models.ponita import Ponita
 import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
@@ -37,7 +37,7 @@ class PONITA_ISR(pl.LightningModule):
 
         # Input/output specifications:
         in_channels_scalar = 0  
-        in_channels_vec = 2  # Position coordinates 
+        in_channels_vec = args.n_nodes  # Node landmark one-hot encoding 
         out_channels_scalar =  args.n_classes # The target
         out_channels_vec = 0  # 
 
