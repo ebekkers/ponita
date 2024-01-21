@@ -144,15 +144,16 @@ class ISRDataReader:
 
             edges = torch.cat(( 
                     graph_constructor.spatial_edges[:int(n_frames*graph_constructor.n_spatial_edges),:], 
-                    graph_constructor.temporal_edges[:int(self.N_NODES*graph_constructor.n_spatial_edges),:]), dim = 0
-                    )
+                    graph_constructor.temporal_edges[:int((n_frames-1)*graph_constructor.n_temporal_edges),:]), dim = 0
+                    ).t().contiguous()
+    
             
             graph_dict[vid_id] = {
                 'label': data['label'],
                 'gloss': data['gloss'],
-                'x': graph_constructor.landmark_features[:,:end_idx].T,  
+                'x': graph_constructor.landmark_features[:,:end_idx],  
                 'node_pos': graph_constructor.reshape_nodes(data['node_pos']),  
-                'edges': edges.t().contiguous(),   
+                'edges': edges,   
                 'split': data['split']
             }
 
@@ -184,7 +185,7 @@ class SpatioTemporalGraphBuilder:
             self.inward_edges = inward_edges
 
         self.n_spatial_edges = len(self.inward_edges)
-        self.n_temporal_edges = self.N_NODES - 1
+        self.n_temporal_edges = self.N_NODES
 
         # Build spatial and temporal edges
         self._build_spatiotemporal_edges()
@@ -230,6 +231,8 @@ class SpatioTemporalGraphBuilder:
                 temporal_edges.append([n1, n2])
 
         self.temporal_edges = torch.tensor(temporal_edges)
+        print(self.temporal_edges.shape)
+        print(self.temporal_edges)
     
     def reshape_nodes(self, pos_data):
         return pos_data.reshape(pos_data.shape[0], -1)
