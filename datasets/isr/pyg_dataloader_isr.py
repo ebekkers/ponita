@@ -146,16 +146,19 @@ class ISRDataReader:
                     graph_constructor.spatial_edges[:int(n_frames*graph_constructor.n_spatial_edges),:], 
                     graph_constructor.temporal_edges[:int((n_frames-1)*graph_constructor.n_temporal_edges),:]), dim = 0
                     ).t().contiguous()
-    
-            
+            x = graph_constructor.landmark_features[:,:end_idx].T
+            pos = graph_constructor.reshape_nodes(data['node_pos'])
+
             graph_dict[vid_id] = {
                 'label': data['label'],
                 'gloss': data['gloss'],
-                'x': graph_constructor.landmark_features[:,:end_idx],  
-                'node_pos': graph_constructor.reshape_nodes(data['node_pos']),  
+                'x': x,  
+                'node_pos': pos,  
                 'edges': edges,   
                 'split': data['split']
             }
+
+            
 
         return graph_dict
         
@@ -200,7 +203,7 @@ class SpatioTemporalGraphBuilder:
         """
         identity_matrix = np.eye(self.N_NODES)
         landmark_features = np.tile(identity_matrix, (1, self.max_n_frames))
-        self.landmark_features = torch.tensor(landmark_features)
+        self.landmark_features = torch.tensor(landmark_features, dtype=torch.float32)
 
     def _build_spatiotemporal_edges(self):
         """
@@ -231,8 +234,7 @@ class SpatioTemporalGraphBuilder:
                 temporal_edges.append([n1, n2])
 
         self.temporal_edges = torch.tensor(temporal_edges)
-        print(self.temporal_edges.shape)
-        print(self.temporal_edges)
+
     
     def reshape_nodes(self, pos_data):
         return pos_data.reshape(pos_data.shape[0], -1)
@@ -269,7 +271,7 @@ class PyGDataLoader:
     def _load_data(self, data_dict, shuffle = True, split = 'train'): 
         data_list = []
         for id, data in data_dict.items():
-            pos = data['node_pos']
+            pos = data['node_pos'].T
             y = data['label']
             x = data['x']
             if self.args.temporal_configuration == 'spatio_temporal':
