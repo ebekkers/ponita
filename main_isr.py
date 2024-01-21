@@ -86,7 +86,7 @@ if __name__ == "__main__":
                         help='Pose data dir location')
     
     # Classification type settings
-    parser.add_argument('--n_classes', type=str, default=2000,
+    parser.add_argument('--n_classes', type=str, default=10,
                         help='Number of sign classes')
     parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 

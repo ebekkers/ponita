@@ -269,12 +269,12 @@ class PyGDataLoader:
     def _load_data(self, data_dict, shuffle = True, split = 'train'): 
         data_list = []
         for id, data in data_dict.items():
-            pos = data['node_pos'].T
+            pos = data['node_pos']
             y = data['label']
             x = data['x']
             if self.args.temporal_configuration == 'spatio_temporal':
                 self.edge_index = data['edges']
-            data_list.append(Data(pos = pos, x = pos, edge_index= self.edge_index, y=y))
+            data_list.append(Data(pos = pos, x = x, edge_index= self.edge_index, y=y))
            
         
         print('Number of ' + split + ' points:', len(data_list))
