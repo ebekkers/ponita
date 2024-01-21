@@ -1,11 +1,13 @@
-import pytorch_lightning as pl
+import numpy as np
+
 import torch
 import torch.nn as nn
-from models.ponita import Ponita
 import torchmetrics
-import numpy as np
-from .scheduler import CosineWarmupScheduler
 from torch_geometric.data import Batch
+import pytorch_lightning as pl
+
+from .scheduler import CosineWarmupScheduler
+from ponita.models.ponita import Ponita
 from ponita.transforms.random_rotate import RandomRotate
 
 

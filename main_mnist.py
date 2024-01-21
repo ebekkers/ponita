@@ -51,7 +51,7 @@ if __name__ == "__main__":
     # ------------------------ Input arguments
     
     # Run parameters
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=50,
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                         help='enable self interactions')
     
     # PONTA model settings
-    parser.add_argument('--num_ori', type=int, default=8,
+    parser.add_argument('--num_ori', type=int, default=10,
                         help='num elements of spherical grid')
     parser.add_argument('--hidden_dim', type=int, default=128,
                         help='internal feature dimension')
