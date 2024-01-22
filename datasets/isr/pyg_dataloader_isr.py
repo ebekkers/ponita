@@ -142,19 +142,20 @@ class ISRDataReader:
             n_frames = data['node_pos'].shape[1]
             end_idx = int(n_frames*self.N_NODES)
 
-            edges = torch.cat(( 
-                    graph_constructor.spatial_edges[:int(n_frames*graph_constructor.n_spatial_edges),:], 
-                    graph_constructor.temporal_edges[:int((n_frames-1)*graph_constructor.n_temporal_edges),:]), dim = 0
-                    ).t().contiguous()
+            spatial_edges =  graph_constructor.spatial_edges[:int(n_frames*graph_constructor.n_spatial_edges),:]
+            spatial_edges = spatial_edges.t().contiguous()
+            temporal_edges = graph_constructor.temporal_edges[:int((n_frames-1)*graph_constructor.n_temporal_edges),:]
+            temporal_edges = temporal_edges.t().contiguous()
             x = graph_constructor.landmark_features[:,:end_idx].T
             pos = graph_constructor.reshape_nodes(data['node_pos'])
+            
 
             graph_dict[vid_id] = {
                 'label': data['label'],
                 'gloss': data['gloss'],
                 'x': x,  
                 'node_pos': pos,  
-                'edges': edges,   
+                'edges': spatial_edges,   
                 'split': data['split']
             }
 
