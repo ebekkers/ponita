@@ -25,7 +25,7 @@ class ISRDataReader:
         
         # Treat each frame as individual data points
         if args.temporal_configuration == 'per_frame':
-            self.data_dict = self._seperate_temporal_dimension(data_dict)
+            self.data_dict = self._separate_temporal_dimension(data_dict)
 
         # Build spatio temporal graph 
         elif args.temporal_configuration == 'spatio_temporal':
@@ -117,9 +117,10 @@ class ISRDataReader:
                 separated_frame_dict[new_key] = {
                     'label': label,
                     'gloss': gloss, 
-                    'x': node_features,  
+                    'x': node_features.float(),  
                     'node_pos': frame_data,
-                    'split': split
+                    'split': split,
+                    'frame_idx': frame_idx
                 }
 
         return separated_frame_dict
@@ -154,6 +155,7 @@ class ISRDataReader:
                 'label': data['label'],
                 'gloss': data['gloss'],
                 'x': x,  
+                'n_frames': data['node_pos'].shape[1], 
                 'node_pos': pos,  
                 'edges': spatial_edges,   
                 'split': data['split']
@@ -277,7 +279,8 @@ class PyGDataLoader:
             x = data['x']
             if self.args.temporal_configuration == 'spatio_temporal':
                 self.edge_index = data['edges']
-            data_list.append(Data(pos = pos, x = x, edge_index= self.edge_index, y=y))
+            
+            data_list.append(Data(pos = pos, x = x, edge_index= self.edge_index, y=y, n_frames = data['n_frames']))
            
         
         print('Number of ' + split + ' points:', len(data_list))

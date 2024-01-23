@@ -8,6 +8,7 @@ from .scheduler import CosineWarmupScheduler
 from ponita.transforms.random_rotate import RandomRotate
 from datasets.isr.pose_transforms import CenterAndScaleNormalize
 import os
+from ponita.models.temporal_ponita import TemporalPonita
 
 
 class PONITA_ISR(pl.LightningModule):
@@ -42,7 +43,7 @@ class PONITA_ISR(pl.LightningModule):
         out_channels_vec = 0  # 
 
         # Make the model
-        self.model = Ponita(in_channels_scalar + in_channels_vec,
+        self.model = TemporalPonita(in_channels_scalar + in_channels_vec,
                         args.hidden_dim,
                         out_channels_scalar,
                         args.layers,
@@ -55,7 +56,8 @@ class PONITA_ISR(pl.LightningModule):
                         layer_scale=args.layer_scale,
                         task_level='graph',
                         multiple_readouts=args.multiple_readouts,
-                        lift_graph=True)
+                        lift_graph=True,
+                        args=args)
     
     def forward(self, graph):
         # Only utilize the scalar (energy) prediction
@@ -102,7 +104,7 @@ class PONITA_ISR(pl.LightningModule):
         decay = set()
         no_decay = set()
         whitelist_weight_modules = (torch.nn.Linear, )
-        blacklist_weight_modules = (torch.nn.LazyBatchNorm1d, torch.nn.LayerNorm, torch.nn.Embedding)
+        blacklist_weight_modules = (torch.nn.LazyBatchNorm1d, torch.nn.LayerNorm, torch.nn.Embedding, torch.nn.Conv1d)
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
@@ -120,6 +122,8 @@ class PONITA_ISR(pl.LightningModule):
                     no_decay.add(fpn)
                 elif pn.endswith('layer_scale'):
                     no_decay.add(fpn)
+                print(pn)
+        
 
         # validate that we considered every parameter
         param_dict = {pn: p for pn, p in self.named_parameters()}

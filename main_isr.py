@@ -8,6 +8,7 @@ from torch_geometric.transforms import BaseTransform
 
 from datasets.isr.pyg_dataloader_isr import ISRDataReader
 from datasets.isr.pyg_dataloader_isr import PyGDataLoader
+from ponita.models.temporal_ponita import TemporalPonita
 
 # TODO: do we need this?
 import torch.multiprocessing
@@ -55,13 +56,13 @@ if __name__ == "__main__":
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=16,
+    parser.add_argument('--batch_size', type=int, default=1,
                         help='Batch size. Does not scale with number of gpus.')
     parser.add_argument('--lr', type=float, default=7e-4,
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
-    parser.add_argument('--log', type=eval, default=True,
+    parser.add_argument('--log', type=eval, default=False,
                         help='logging flag')
     parser.add_argument('--model_name', type=str, default='',
                         help='logging flag')
@@ -104,13 +105,13 @@ if __name__ == "__main__":
     # PONTA model settings
     parser.add_argument('--num_ori', type=int, default=4,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=64,
+    parser.add_argument('--hidden_dim', type=int, default=63,
                         help='internal feature dimension')
     parser.add_argument('--basis_dim', type=int, default=128,
                         help='number of basis functions')
     parser.add_argument('--degree', type=int, default=3,
                         help='degree of the polynomial embedding')
-    parser.add_argument('--layers', type=int, default=4,
+    parser.add_argument('--layers', type=int, default=3,
                         help='Number of message passing layers')
     parser.add_argument('--widening_factor', type=int, default=4,
                         help='Number of message passing layers')
@@ -153,6 +154,7 @@ if __name__ == "__main__":
     
     # ------------------------ Load and initialize the model
     model = PONITA_ISR(args)
+    
 
     # ------------------------ Weights and Biases logger
     if args.log:

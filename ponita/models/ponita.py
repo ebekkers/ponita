@@ -52,6 +52,10 @@ class PonitaFiberBundle(nn.Module):
         # For constructing the position-orientation graph and its invariants
         self.transform = Compose([PositionOrientationGraph(num_ori), SEnInvariantAttributes(separable=True)])
 
+        
+        self.conv1d_layer = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim+2, kernel_size=4, stride=3)
+
+
 
         # Activation function to use internally
         act_fn = torch.nn.GELU()
@@ -77,11 +81,13 @@ class PonitaFiberBundle(nn.Module):
                 self.read_out_layers.append(nn.Linear(hidden_dim, output_dim + output_dim_vec))
             else:
                 self.read_out_layers.append(None)
+        
+        
     
     def forward(self, graph):
-
-        # Lift and compute invariants
+        # Lift and compute invariants - lifts to number of orientations 
         graph = self.transform(graph)
+
 
         # Sample the kernel basis and window the spatial kernel with a smooth cut-off
         kernel_basis = self.basis_fn(graph.attr) * self.windowing_fn(graph.dists).unsqueeze(-2)
@@ -94,6 +100,7 @@ class PonitaFiberBundle(nn.Module):
         readouts = []
         for interaction_layer, readout_layer in zip(self.interaction_layers, self.read_out_layers):
             x = interaction_layer(x, graph.edge_index, edge_attr=kernel_basis, fiber_attr=fiber_kernel_basis, batch=graph.batch)
+            print('x', graph.x.shape)
             if readout_layer is not None: readouts.append(readout_layer(x))
         readout = sum(readouts) / len(readouts)
         
@@ -166,7 +173,7 @@ class PonitaPointCloud(nn.Module):
 
         # Initial node embedding
         self.x_embedder = nn.Linear(input_dim, hidden_dim, False)
-        
+
         # Make feedforward network
         self.interaction_layers = nn.ModuleList()
         self.read_out_layers = nn.ModuleList()
@@ -195,7 +202,7 @@ class PonitaPointCloud(nn.Module):
         readouts = []
         for interaction_layer, readout_layer in zip(self.interaction_layers, self.read_out_layers):
             x = interaction_layer(x, graph.edge_index, edge_attr=kernel_basis, batch=graph.batch)
-            if readout_layer is not None: readouts.append(readout_layer(x))
+            
         readout = sum(readouts) / len(readouts)
         
         # Read out the scalar and vector part of the output
