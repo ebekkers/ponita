@@ -37,6 +37,12 @@ class TemporalPonita(PonitaFiberBundle):
                          **kwargs)  
         
         self.args = args
+        self.conv1d_layer = nn.ModuleList()
+        self.kernel_size = 3
+        self.stride = 1
+        self.conv1d_layer.append(nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, groups = hidden_dim,  kernel_size=self.kernel_size, stride=self.stride))
+        
+
 
         
         
@@ -99,15 +105,22 @@ class TemporalPonita(PonitaFiberBundle):
         print('num nodes batch', num_nodes_batch)
         print('num ori', num_ori)
         print('num channels', num_channels)
+        print('x initial', x.shape)
         x = x.view(-1, batch_size*num_land_marks*num_ori, num_channels)
         print('x view', x.shape)
         x = x.permute(1, 2, 0)
         print('x permute', x.shape, x.device)
         # this should be in the init func tno?
-        out = self.conv1d_layer(x)
-        print('out', out.shape)
+        for layer in self.conv1d_layer:
+            x = layer(x)
+        print('out', x.shape)
+        x = x.permute(2, 0, 1)
+        print('x permute out', x.shape)
+        print('reshape size', num_nodes_batch - (self.kernel_size-1)*num_land_marks)
+        x = x.reshape(num_nodes_batch - (self.kernel_size-1)*num_land_marks, num_ori, num_channels)
+        #x = x.view(num_nodes_batch - (self.kernel_size-1)*num_land_marks, num_ori, num_channels)
+        print('x view out', x.shape)
         # unsmooshh out again by doing reverse of the transformations we did before the 1d conv
-        exit()
         return x
 
 
