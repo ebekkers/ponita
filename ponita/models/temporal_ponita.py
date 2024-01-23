@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from ponita.models.ponita import Ponita
 from ponita.models.ponita import PonitaFiberBundle
+from ponita.nn.conv import Conv, FiberBundleConv
+from ponita.nn.convnext import ConvNext
 
 class TemporalPonita(PonitaFiberBundle):
     def __init__(self,
@@ -38,9 +40,27 @@ class TemporalPonita(PonitaFiberBundle):
         
         self.args = args
         self.conv1d_layer = nn.ModuleList()
-        self.kernel_size = 3
-        self.stride =  5
+        self.kernel_size = 4
+        self.stride =  3
         self.conv1d_layer.append(nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, groups = hidden_dim,  kernel_size=self.kernel_size, stride=self.stride))
+
+        
+        # Activation function to use internally
+        act_fn = torch.nn.GELU()
+        
+        # TODO: Calculate the output size post convolution and use that as the input dim for the conv and the layer 
+
+         # Make feedforward network
+        self.interaction_layers = nn.ModuleList()
+        self.read_out_layers = nn.ModuleList()
+        for i in range(num_layers):
+            conv = FiberBundleConv(hidden_dim, hidden_dim, basis_dim, groups=hidden_dim, separable=True)
+            layer = ConvNext(hidden_dim, conv, act=act_fn, layer_scale=layer_scale, widening_factor=widening_factor)
+            self.interaction_layers.append(layer)
+            if multiple_readouts or i == (num_layers - 1):
+                self.read_out_layers.append(nn.Linear(hidden_dim, output_dim + output_dim_vec))
+            else:
+                self.read_out_layers.append(None)
         
 
 
