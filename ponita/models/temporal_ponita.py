@@ -39,7 +39,7 @@ class TemporalPonita(PonitaFiberBundle):
         self.args = args
         self.conv1d_layer = nn.ModuleList()
         self.kernel_size = 3
-        self.stride = 1
+        self.stride =  5
         self.conv1d_layer.append(nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, groups = hidden_dim,  kernel_size=self.kernel_size, stride=self.stride))
         
 
@@ -90,7 +90,7 @@ class TemporalPonita(PonitaFiberBundle):
         return output_scalar, output_vector
       
     
-    def conv1d(self, x, graph, stride =2, kernel_size = 2):
+    def conv1d(self, x, graph):
         """ Perform 1D convolution on the time axis 
 
         This would need to keep trac of the vid_id, and only perform convolutions within the same vid_id
@@ -98,28 +98,29 @@ class TemporalPonita(PonitaFiberBundle):
 
         """
         num_land_marks = self.args.n_nodes
-        print('num landmarks', num_land_marks)
+        #print('num landmarks', num_land_marks)
         batch_size = len(graph.batch.unique())
-        print('batch sizs', batch_size)
+        #print('batch sizs', batch_size)
         num_nodes_batch, num_ori, num_channels = x.shape
-        print('num nodes batch', num_nodes_batch)
-        print('num ori', num_ori)
-        print('num channels', num_channels)
-        print('x initial', x.shape)
+        #print('num nodes batch', num_nodes_batch)
+        #print('num ori', num_ori)
+        #print('num channels', num_channels)
+        print('x in', x.shape)
         x = x.view(-1, batch_size*num_land_marks*num_ori, num_channels)
-        print('x view', x.shape)
+        #print('x view', x.shape)
         x = x.permute(1, 2, 0)
-        print('x permute', x.shape, x.device)
+        #print('x permute', x.shape, x.device)
         # this should be in the init func tno?
         for layer in self.conv1d_layer:
             x = layer(x)
-        print('out', x.shape)
+        #print('out', x.shape)
         x = x.permute(2, 0, 1)
-        print('x permute out', x.shape)
-        print('reshape size', num_nodes_batch - (self.kernel_size-1)*num_land_marks)
-        x = x.reshape(num_nodes_batch - (self.kernel_size-1)*num_land_marks, num_ori, num_channels)
+        #print('x permute out', x.shape)
+        #print('reshape size', num_nodes_batch - (self.kernel_size-1)*num_land_marks)
+        downsample = x.shape[0]*num_land_marks
+        x = x.reshape(downsample, num_ori, num_channels)
         #x = x.view(num_nodes_batch - (self.kernel_size-1)*num_land_marks, num_ori, num_channels)
-        print('x view out', x.shape)
+        print('x out', x.shape)
         # unsmooshh out again by doing reverse of the transformations we did before the 1d conv
         return x
 
