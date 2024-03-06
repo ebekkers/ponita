@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from ponita.models.ponita import Ponita
 from ponita.models.ponita import PonitaFiberBundle
 
 class TemporalPonita(PonitaFiberBundle):
@@ -104,7 +103,7 @@ class TemporalPonita(PonitaFiberBundle):
         x = x.permute(1, 2, 0)
         print('x permute', x.shape, x.device)
         # this should be in the init func tno?
-        out = self.conv1d_layer(x)
+        #out = self.conv1d_layer(x)
         print('out', out.shape)
         # unsmooshh out again by doing reverse of the transformations we did before the 1d conv
         exit()
