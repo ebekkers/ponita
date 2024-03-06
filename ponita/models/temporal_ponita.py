@@ -41,31 +41,16 @@ class TemporalPonita(PonitaFiberBundle):
         self.args = args
         self.conv1d_layer = nn.ModuleList()
         self.kernel_size = 4
-        self.stride =  3
+        self.stride =  1
         self.conv1d_layer.append(nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, groups = hidden_dim,  kernel_size=self.kernel_size, stride=self.stride))
-
-        
-        # Activation function to use internally
-        act_fn = torch.nn.GELU()
-        
-        # TODO: Calculate the output size post convolution and use that as the input dim for the conv and the layer 
-
-         # Make feedforward network
-        self.interaction_layers = nn.ModuleList()
-        self.read_out_layers = nn.ModuleList()
-        for i in range(num_layers):
-            conv = FiberBundleConv(hidden_dim, hidden_dim, basis_dim, groups=hidden_dim, separable=True)
-            layer = ConvNext(hidden_dim, conv, act=act_fn, layer_scale=layer_scale, widening_factor=widening_factor)
-            self.interaction_layers.append(layer)
-            if multiple_readouts or i == (num_layers - 1):
-                self.read_out_layers.append(nn.Linear(hidden_dim, output_dim + output_dim_vec))
-            else:
-                self.read_out_layers.append(None)
+        self.inward_edges = [[2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
+                                [7, 8], [7, 9], [9, 10], [7, 11], [11, 12], [7, 13], [13, 14], 
+                                [7, 15], [15, 16], [17, 18], [17, 19], [19, 20], [17, 21], [21, 22], 
+                                [17, 23], [23, 24], [17, 25], [25, 26]]
+        self.n_edges = len(self.inward_edges)
+        self.tot_edges = args.n_nodes*self.n_edges
         
 
-
-        
-        
 
     def forward(self, graph):
 
@@ -89,12 +74,13 @@ class TemporalPonita(PonitaFiberBundle):
         readouts = []
         for interaction_layer, readout_layer in zip(self.interaction_layers, self.read_out_layers):
             # Assuming only spatial edges
-            print('x', x.shape)
+            #print('x in', x.shape)
             x = interaction_layer(x, graph.edge_index, edge_attr=kernel_basis, fiber_attr=fiber_kernel_basis, batch=graph.batch)
-            print('x', x.shape)
+            #print('x out spat', x.shape)
             # Do we run a temporal convolution here?
             
-            x = self.conv1d(x, graph)
+            x, graph = self.conv1d(x, graph)
+            #print('x out temp', x.shape)
             if readout_layer is not None: readouts.append(readout_layer(x))
 
         readout = sum(readouts) / len(readouts)
@@ -125,7 +111,7 @@ class TemporalPonita(PonitaFiberBundle):
         #print('num nodes batch', num_nodes_batch)
         #print('num ori', num_ori)
         #print('num channels', num_channels)
-        print('x in', x.shape)
+        #print('x in', x.shape)
         x = x.view(-1, batch_size*num_land_marks*num_ori, num_channels)
         #print('x view', x.shape)
         x = x.permute(1, 2, 0)
@@ -140,9 +126,24 @@ class TemporalPonita(PonitaFiberBundle):
         downsample = x.shape[0]*num_land_marks
         x = x.reshape(downsample, num_ori, num_channels)
         #x = x.view(num_nodes_batch - (self.kernel_size-1)*num_land_marks, num_ori, num_channels)
-        print('x out', x.shape)
+        #print('x out', x.shape)
         # unsmooshh out again by doing reverse of the transformations we did before the 1d conv
-        return x
+
+        #print(graph.edge_index[0, 1:100])
+        #print(graph.edge_index[1, 1:100])
+        graph.edge_index = graph.edge_index[:,]
+        idx = len(graph.edge_index[0]) - 53*(self.kernel_size-1)
+        graph.edge_index = graph.edge_index[:, :idx]
+        # To print the edge index transformation
+        #print('properties')
+        #print(graph.edge_index)
+        #print(graph.edge_index.shape)
+        #print(x.shape)
+        #print('--------------')
+        # TODO: fix this for stride
+        # Next problem is a position component, how do we select the position
+        
+        return x, graph
 
 
 if __name__ == "__main__":
