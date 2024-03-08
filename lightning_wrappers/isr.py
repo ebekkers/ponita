@@ -62,6 +62,7 @@ class PONITA_ISR(pl.LightningModule):
     def forward(self, graph):
         # Only utilize the scalar (energy) prediction
         pred, _ = self.model(graph)
+
         return pred
 
     def training_step(self, graph):

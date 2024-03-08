@@ -121,7 +121,7 @@ if __name__ == "__main__":
                         help='Whether or not to readout after every layer')
     
     # Parallel computing stuff
-    parser.add_argument('-g', '--gpus', default=0, type=int,
+    parser.add_argument('-g', '--gpus', default=1, type=int,
                         help='number of gpus to use (assumes all are on one node)')
     
     # Arg parser

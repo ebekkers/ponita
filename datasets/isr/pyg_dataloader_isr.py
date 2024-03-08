@@ -144,11 +144,16 @@ class ISRDataReader:
         for vid_id, data in data_dict.items():
             n_frames = data['node_pos'].shape[1]
             end_idx = int(n_frames*self.N_NODES)
-
-            spatial_edges =  graph_constructor.spatial_edges[:int(n_frames*graph_constructor.n_spatial_edges),:]
-            spatial_edges = spatial_edges.t().contiguous()
-            temporal_edges = graph_constructor.temporal_edges[:int((n_frames-1)*graph_constructor.n_temporal_edges),:]
-            temporal_edges = temporal_edges.t().contiguous()
+            if n_frames < self.max_frames:
+                spatial_edges =  graph_constructor.spatial_edges[:int(n_frames*graph_constructor.n_spatial_edges),:]
+                spatial_edges = spatial_edges.t().contiguous()
+                temporal_edges = graph_constructor.temporal_edges[:int((n_frames-1)*graph_constructor.n_temporal_edges),:]
+                temporal_edges = temporal_edges.t().contiguous()
+            else: 
+                spatial_edges =  graph_constructor.spatial_edges[:int(self.max_frames*graph_constructor.n_spatial_edges),:]
+                spatial_edges = spatial_edges.t().contiguous()
+                temporal_edges = graph_constructor.temporal_edges[:int((self.max_frames-1)*graph_constructor.n_temporal_edges),:]
+                temporal_edges = temporal_edges.t().contiguous()
             x = graph_constructor.landmark_features[:,:end_idx].T
             pos = graph_constructor.reshape_nodes(data['node_pos'])
             
@@ -159,7 +164,7 @@ class ISRDataReader:
                 'label': data['label'],
                 'gloss': data['gloss'],
                 'x': x,  
-                'n_frames': self.max_frames, #data['node_pos'].shape[1], 
+                'n_frames': data['node_pos'].shape[1], #data['node_pos'].shape[1], 
                 'node_pos': pos,  
                 'edges': spatial_edges,   
                 'split': data['split']
