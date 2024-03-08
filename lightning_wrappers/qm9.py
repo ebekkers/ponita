@@ -78,6 +78,8 @@ class PONITA_QM9(pl.LightningModule):
         return pred.squeeze(-1)
 
     def training_step(self, graph):
+        if self.train_augm:
+            graph = self.rotation_transform(graph)
         pred = self(graph)
         # loss = torch.mean((pred - (graph.y - self.shift) / self.scale)**2)
         loss = torch.mean((pred - (graph.y - self.shift) / self.scale).abs())
