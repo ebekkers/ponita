@@ -8,12 +8,14 @@ from torch_geometric.loader import DataLoader
 
 
 
+
 class ISRDataReader:
     def __init__(self, data_dir, args):
         print('Reading data...')
         
         self.args = args
         self.N_NODES = args.n_nodes
+        self.max_frames = 128
         
         # Load metadata
         file_path = os.path.join(data_dir, args.root_metadata)
@@ -150,12 +152,14 @@ class ISRDataReader:
             x = graph_constructor.landmark_features[:,:end_idx].T
             pos = graph_constructor.reshape_nodes(data['node_pos'])
             
+            
+            x, pos = self.add_padding(x, pos)
 
             graph_dict[vid_id] = {
                 'label': data['label'],
                 'gloss': data['gloss'],
                 'x': x,  
-                'n_frames': data['node_pos'].shape[1], 
+                'n_frames': self.max_frames, #data['node_pos'].shape[1], 
                 'node_pos': pos,  
                 'edges': spatial_edges,   
                 'split': data['split']
@@ -164,7 +168,17 @@ class ISRDataReader:
             
 
         return graph_dict
-        
+
+    def add_padding(self, x, pos_data):
+        nodes_to_add = self.max_frames*self.N_NODES-pos_data.shape[1]
+        if nodes_to_add >= 0:
+            pos_data = torch.nn.functional.pad(pos_data, (0, nodes_to_add), "constant", 0)
+            x = torch.nn.functional.pad(x, (0, 0, 0, nodes_to_add), "constant", 0)
+        elif nodes_to_add < 0:
+            pos_data = pos_data[:, :self.max_frames*self.N_NODES]
+            x = x[:self.max_frames*self.N_NODES, :]
+            
+        return x, pos_data
     
 class SpatioTemporalGraphBuilder:
     def __init__(self, data_dict, args, inward_edges = None):

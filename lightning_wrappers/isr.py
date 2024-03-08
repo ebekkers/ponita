@@ -57,7 +57,7 @@ class PONITA_ISR(pl.LightningModule):
                         task_level='graph',
                         multiple_readouts=args.multiple_readouts,
                         lift_graph=True,
-                        args=args)
+                        args=args).to('cuda:0')
     
     def forward(self, graph):
         # Only utilize the scalar (energy) prediction
@@ -122,8 +122,7 @@ class PONITA_ISR(pl.LightningModule):
                     no_decay.add(fpn)
                 elif pn.endswith('layer_scale'):
                     no_decay.add(fpn)
-                print(pn)
-        
+           
 
         # validate that we considered every parameter
         param_dict = {pn: p for pn, p in self.named_parameters()}

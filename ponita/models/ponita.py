@@ -53,8 +53,6 @@ class PonitaFiberBundle(nn.Module):
         self.transform = Compose([PositionOrientationGraph(num_ori), SEnInvariantAttributes(separable=True)])
 
         
-        self.conv1d_layer = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim+2, kernel_size=4, stride=3)
-
 
 
         # Activation function to use internally
