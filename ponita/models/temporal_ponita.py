@@ -83,17 +83,14 @@ class TemporalPonita(PonitaFiberBundle):
 
         # Interaction + readout layers
         readouts = []
-        it = 0
+        
         for interaction_layer, readout_layer in zip(self.interaction_layers, self.read_out_layers):
             # Assuming only spatial edges
             x = interaction_layer(x, graph.edge_index, edge_attr=kernel_basis, fiber_attr=fiber_kernel_basis, batch=graph.batch)
             
-            if it < self.num_layers: 
-                if graph.n_frames[0] > 1:
-                    
-                    x, graph = self.conv1d(x, graph)
-            it += 1
-            
+
+            if graph.n_frames[0] > 1:                    
+                x, graph = self.conv1d(x, graph)
 
             if readout_layer is not None: 
                 
@@ -104,8 +101,6 @@ class TemporalPonita(PonitaFiberBundle):
         # Read out the scalar and vector part of the output
         readout_scalar, readout_vec = torch.split(readout, [self.output_dim, self.output_dim_vec], dim=-1)
         
-        print(readout_scalar.shape)
-        print(graph.batch.shape)
         # Read out scalar and vector predictions
         output_scalar = self.scalar_readout_fn(readout_scalar, graph.batch)
         output_vector = self.vec_readout_fn(readout_vec, graph.ori_grid, graph.batch)
