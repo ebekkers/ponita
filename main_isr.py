@@ -8,7 +8,7 @@ from torch_geometric.transforms import BaseTransform
 
 from datasets.isr.pyg_dataloader_isr import ISRDataReader
 from datasets.isr.pyg_dataloader_isr import PyGDataLoader
-from ponita.models.temporal_ponita import TemporalPonita
+
 
 # TODO: do we need this?
 import torch.multiprocessing
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                         help='Whether or not to readout after every layer')
     
     # Parallel computing stuff
-    parser.add_argument('-g', '--gpus', default=1, type=int,
+    parser.add_argument('-g', '--gpus', default=0, type=int,
                         help='number of gpus to use (assumes all are on one node)')
     
     # Arg parser
