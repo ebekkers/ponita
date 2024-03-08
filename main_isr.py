@@ -62,7 +62,7 @@ if __name__ == "__main__":
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
-    parser.add_argument('--log', type=eval, default=False,
+    parser.add_argument('--log', type=eval, default=True,
                         help='logging flag')
     parser.add_argument('--model_name', type=str, default='',
                         help='logging flag')
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                         help='Whether or not to readout after every layer')
     
     # Parallel computing stuff
-    parser.add_argument('-g', '--gpus', default=0, type=int,
+    parser.add_argument('-g', '--gpus', default=1, type=int,
                         help='number of gpus to use (assumes all are on one node)')
     
     # Arg parser
