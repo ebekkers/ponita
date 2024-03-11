@@ -158,7 +158,7 @@ class ISRDataReader:
             pos = graph_constructor.reshape_nodes(data['node_pos'])
             
             
-            x, pos = self.add_padding(x, pos)
+            #x, pos = self.add_padding(x, pos)
 
             graph_dict[vid_id] = {
                 'label': data['label'],

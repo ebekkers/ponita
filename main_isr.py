@@ -56,7 +56,7 @@ if __name__ == "__main__":
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=1,
+    parser.add_argument('--batch_size', type=int, default=5,
                         help='Batch size. Does not scale with number of gpus.')
     parser.add_argument('--lr', type=float, default=7e-4,
                         help='learning rate')
