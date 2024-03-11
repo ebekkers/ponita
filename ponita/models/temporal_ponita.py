@@ -113,9 +113,7 @@ class TemporalPonita(PonitaFiberBundle):
 
         """
         num_land_marks = self.args.n_nodes
-        batch_size = len(graph.batch.unique())
         
-        print('x in' , x.shape)
         x_conv = []
         start_idx = 0
         for n_frames in graph.n_frames:
