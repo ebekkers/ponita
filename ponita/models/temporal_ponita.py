@@ -44,8 +44,6 @@ class TemporalPonita(PonitaFiberBundle):
         self.kernel_size = 5
         self.stride =  1
         self.padding = int((self.kernel_size - 1) / 2)
-        # TODO: Extract this to main args
-        fixed_dim = 128*27
         self.conv1d_layer.append(nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, groups = hidden_dim,  kernel_size=self.kernel_size, stride=self.stride, padding = self.padding))
         
         self.inward_edges = [[2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
@@ -115,29 +113,39 @@ class TemporalPonita(PonitaFiberBundle):
 
         """
         num_land_marks = self.args.n_nodes
-
-        batch_size = len(graph.batch.unique())
-
-        num_nodes_batch, num_ori, num_channels = x.shape
-
-        x = x.view(-1, batch_size*num_land_marks*num_ori, num_channels)
-
-        x = x.permute(1, 2, 0)
         
-        # this should be in the init func tno?
-        for layer in self.conv1d_layer:
-            x = layer(x)
+        x_conv = []
+        start_idx = 0
+        for n_frames in graph.n_frames:
+            # Select range corresponding to graph (n_frames x n_nodes)
+            n_idx = n_frames*num_land_marks
+            x_tmp = x[start_idx:start_idx+n_idx,]
+
+            # Rearrange tensor
+            num_nodes_batch, num_ori, num_channels = x_tmp.shape
+            
+            x_tmp = x_tmp.view(-1, num_land_marks*num_ori, num_channels)
+            x_tmp = x_tmp.permute(1, 2, 0)
+
+            # Convolution is performed on the last axis of the input data 
+            for layer in self.conv1d_layer:
+                x_tmp = layer(x_tmp)
+
+            x_tmp = x_tmp.permute(2, 0, 1)
+
+            #downsample = x.shape[0]*num_land_marks
+            #x = x.reshape(downsample, num_ori, num_channels)
+            x_tmp = x_tmp.reshape(num_nodes_batch, num_ori, num_channels)
+            x_conv.append(x_tmp)
+
+            # Update frame index
+            start_idx += n_frames*num_land_marks
         
-        x = x.permute(2, 0, 1)
+        x = torch.cat(x_conv, dim=0)
 
-        downsample = x.shape[0]*num_land_marks
-        x = x.reshape(downsample, num_ori, num_channels)
-
-        graph.edge_index = graph.edge_index[:,]
+        #graph.edge_index = graph.edge_index[:,]
         
-        #idx = math.floor((len(graph.edge_index[1])-self.kernel_size)/self.stride + 1) 
-        #graph.edge_index = graph.edge_index[:, :idx]
-
+       
 
         # To print the edge index transformation
         # TODO: fix this for stride
