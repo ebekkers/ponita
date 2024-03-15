@@ -5,7 +5,8 @@ from ponita.models.ponita import Ponita
 import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
-from ponita.transforms.random_rotate import RandomRotate
+from ponita.transforms.random_rotate import RandomRotate 
+from ponita.transforms.pose_transforms import ShearTransform
 from datasets.isr.pose_transforms import CenterAndScaleNormalize
 import os
 from ponita.models.temporal_ponita import TemporalPonita
@@ -29,6 +30,7 @@ class PONITA_ISR(pl.LightningModule):
         # For rotation augmentations during training and testing
         self.train_augm = args.train_augm
         self.rotation_transform = RandomRotate(['pos'], n=2)
+        self.shear_transform = ShearTransform()
         
         
         # The metrics to log
@@ -68,7 +70,7 @@ class PONITA_ISR(pl.LightningModule):
     def training_step(self, graph):
         if self.train_augm:
             graph = self.rotation_transform(graph)
-            #graph = CenterAndScaleNormalize(graph)
+            graph = self.shear_transform(graph)
         pred = self(graph)
         pred = torch.nn.functional.log_softmax(pred, dim=-1)
         loss = torch.nn.functional.nll_loss(pred, graph.y)
