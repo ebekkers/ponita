@@ -59,7 +59,7 @@ The paper results can be reproduced by running the following command for rMD17:
 
 We did a sweep over all "revised *" targets and the seeds 0, 1, 2. Otherwise the defaut settings in ```main.py``` are used. By setting ```num_ori=0``` the PNITA results are generated, with ```num_ori = 20``` the PONITA results are generated. The table shows our results compared to one of the seminal works on *steerable* equivariant convolutions: [NEQUIP](https://github.com/mir-group/nequip). Our methods, PNITA for position space convolutions and PONITA for position-orientation space convolutions, are based on invariants only. For comparison to other state-of-the-art-methods see our paper.
 
-| Target | | NEQUIP | PNITA | PONITA
+| Target | | NEQUIP | PNITA | PONITA 
 |-|-|-|-|-
 | Aspirin        | E | 2.3 | 4.7 | **1.7**
 |                | F | 8.2 | 16.3 | **5.8**
@@ -105,22 +105,22 @@ We also tested the PONITA architecture for molecular property prediction. For th
 
 ```python3 main_QM9.py```
 
-Since QM9 provides an ```edge_index``` derived from the covalent bonds, we have an option to treat the **molecules as point clouds in position-orientation space**. This is what we did in the PONITA entry below, where we specified in the code ```num_ori=-1```. As a baseline we compare against the seminal [DimeNet++](https://github.com/gasteigerjo/dimenet), which, like PONITA, processes the molecules via message passing over the edges. For PNITA, the position space method, we found that going to deep hurts performance. Best performance was obtained with ```layers=5``` and ```hidden_dim=128```. For PONITA we obtained best results with ```layers=9``` and a ```hidden_dim=256```. Otherwise the settings were the same and both used a fully connected graph (```radius=1000```). The results are as follows.
+Since QM9 provides an ```edge_index``` derived from the covalent bonds, we have an option to treat the **molecules as point clouds in position-orientation space**. This is what we did in the PONITA entry below, where we specified in the code ```num_ori=-1```. As a baseline we compare against the seminal [DimeNet++](https://github.com/gasteigerjo/dimenet), which, like PONITA, processes the molecules via message passing over the edges. For PNITA, the position space method, we found that going to deep hurts performance and obtained best performance with ```layers=5``` and ```hidden_dim=128```. For PONITA we obtained best results with ```layers=9``` and a ```hidden_dim=256```. Further, we compared to the $\mathbb{R}^3 \times S^2$ point cloud approach (```num_ori=-1```) with the fiber-bundle (spherical grid-based) approach with ```num_ori=16```. Otherwise the settings between the PNITA and PONITA results were the same and all used a fully connected graph (```radius=1000```). The results are as follows.
 
-| Target | Unit | DimeNet++ | PNITA | PONITA
-|-|-|-|-|-
-| $\mu$ | D | 0.0286 | 0.0207 | **0.0115**
-| $\alpha$ | $a_0^3$ | 0.0469 | 0.0602 | **0.0446**
-| $\epsilon_{HOMO}$ | meV | 27.8 | 26.1 | **18.6**
-| $\epsilon_{LUMO}$ | meV | 19.7 | 21.9 | **15.3**
-| $\Delta \epsilon$ | meV | 34.8 | 43.4 | **33.5**
-| $\langle R^2 \rangle$ | $a_0^2$ | 0.331 | **0.149** | 0.227
-| ZPVE | meV | **1.29** | 1.53 | **1.29**
-| $U_0$ | meV | **8.02** | 10.71 | 9.20
-| $U$ | meV | **7.89** | 10.63 | 9.00
-| $H$ | meV | **8.11** | 11.00 | 8.54
-| $G$ | meV | 0.0249 | 0.0112 | **0.0095**
-| $c_v$ | $\frac{\mathrm{cal}}{\mathrm{mol} \, \mathrm{K}}$ | **0.0249** |  0.0307 | **0.0250**
+| Target | Unit | DimeNet++ | PNITA | PONITA (```num_ori=-1```| PONITA (```num_ori=16```)
+|-|-|-|-|-|-
+| $\mu$ | D | 0.0286 | 0.0207 | **0.0115** | 0.0121
+| $\alpha$ | $a_0^3$ | 0.0469 | 0.0602 | 0.0446 | **0.0375**
+| $\epsilon_{HOMO}$ | meV | 27.8 | 26.1 | 18.6 | **16.0**
+| $\epsilon_{LUMO}$ | meV | 19.7 | 21.9 | 15.3 | **14.5**
+| $\Delta \epsilon$ | meV | 34.8 | 43.4 | 33.5 | **30.4**
+| $\langle R^2 \rangle$ | $a_0^2$ | 0.331 | **0.149** | 0.227 | 0.235
+| ZPVE | meV | **1.29** | 1.53 | **1.29** | **1.29**
+| $U_0$ | meV | **8.02** | 10.71 | 9.20 | 8.31
+| $U$ | meV | **7.89** | 10.63 | 9.00 | 8.67
+| $H$ | meV | 8.11 | 11.00 | 8.54 | **8.04**
+| $G$ | meV | 0.0249 | 0.0112 | 0.0095 | **0.00863**
+| $c_v$ | $\frac{\mathrm{cal}}{\mathrm{mol} \, \mathrm{K}}$ | **0.0249** |  0.0307 | 0.0250 | **0.0242**
 
 ____
 ### Super-pixel MNIST (2D point clouds)
