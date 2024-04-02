@@ -14,37 +14,6 @@ from datasets.isr.pyg_dataloader_isr import PyGDataLoader
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
-
-class Sparsify(BaseTransform):
-    def __init__(self, threshold=0.5):
-        super().__init__()
-        self.threshold = threshold
-
-    def __call__(self, graph):
-        select = graph.x[:,0] > self.threshold
-        graph.x = graph.x[select]
-        graph.pos = graph.pos[select]
-        if graph.batch is not None:
-            graph.batch = graph.batch[select]
-        graph.edge_index = None
-        return graph
-    
-from torch_geometric.transforms import BaseTransform
-class RemoveDuplicatePoints(BaseTransform):
-    def __init__(self):
-        super().__init__()
-
-    def __call__(self, graph):
-        dists = (graph.pos[:,None,:] - graph.pos[None,:,:]).norm(dim=-1)
-        dists = dists + 100. * torch.tril(torch.ones_like(dists), diagonal=0)
-        min_dists = dists.min(dim=1)[0]
-        select = min_dists > 0.
-        graph.x = graph.x[select]
-        graph.pos = graph.pos[select]
-        graph.edge_index = None
-        return graph
-    
-
 # ------------------------ Start of the main experiment script
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -52,19 +21,19 @@ if __name__ == "__main__":
     # ------------------------ Input arguments
     
     # Run parameters
-    parser.add_argument('--epochs', type=int, default=400,
+    parser.add_argument('--epochs', type=int, default=500,
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=5,
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size. Does not scale with number of gpus.')
-    parser.add_argument('--lr', type=float, default=7e-4,
+    parser.add_argument('--lr', type=float, default=5e-3,
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
-    parser.add_argument('--log', type=eval, default=False,
+    parser.add_argument('--log', type=eval, default=True,
                         help='logging flag')
-    parser.add_argument('--model_name', type=str, default='',
+    parser.add_argument('--model_name', type=str, default='Ponita_wd',
                         help='logging flag')
     parser.add_argument('--enable_progress_bar', type=eval, default=True,
                         help='enable progress bar')
@@ -81,13 +50,13 @@ if __name__ == "__main__":
     ## Data location settings
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
-    parser.add_argument('--root_metadata', type=str, default="subset_metadata.json",
+    parser.add_argument('--root_metadata', type=str, default="wlasl_new.json",
                         help='Metadata json file location')
-    parser.add_argument('--root_poses', type=str, default="subset_selection",
+    parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
                         help='Pose data dir location')
     
     # Classification type settings
-    parser.add_argument('--n_classes', type=str, default=10,
+    parser.add_argument('--n_classes', type=str, default=100,
                         help='Number of sign classes')
     parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
@@ -101,19 +70,24 @@ if __name__ == "__main__":
                         help='radius for the radius graph construction in front of the force loss')
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
-    
+
+    parser.add_argument('--kernel_size', type=int, default=5,
+                        help='size of 1D conv kernel')    
+    parser.add_argument('--stride', type=int, default=1,
+                        help='size of 1D conv stride')    
+
     # PONTA model settings
-    parser.add_argument('--num_ori', type=int, default=4,
+    parser.add_argument('--num_ori', type=int, default=12,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=63,
+    parser.add_argument('--hidden_dim', type=int, default=32,
                         help='internal feature dimension')
-    parser.add_argument('--basis_dim', type=int, default=128,
+    parser.add_argument('--basis_dim', type=int, default=32,
                         help='number of basis functions')
     parser.add_argument('--degree', type=int, default=3,
                         help='degree of the polynomial embedding')
-    parser.add_argument('--layers', type=int, default=3,
+    parser.add_argument('--layers', type=int, default=2,
                         help='Number of message passing layers')
-    parser.add_argument('--widening_factor', type=int, default=4,
+    parser.add_argument('--widening_factor', type=int, default=2,
                         help='Number of message passing layers')
     parser.add_argument('--layer_scale', type=float, default=0,
                         help='Initial layer scale factor in ConvNextBlock, 0 means do not use layer scale')
@@ -159,9 +133,9 @@ if __name__ == "__main__":
     # ------------------------ Weights and Biases logger
     if args.log:
         if args.model_name != '':
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=args.model_name, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="wlasl_break", name=args.model_name, config=args, save_dir='logs')
         else:
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=None, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="wlasl_break", name=None, config=args, save_dir='logs')
     else:
         logger = None
 
@@ -172,7 +146,7 @@ if __name__ == "__main__":
     
     # Pytorch lightning call backs
     callbacks = [EMA(0.99),
-                 pl.callbacks.ModelCheckpoint(monitor='valid ACC', mode = 'max'),
+                 pl.callbacks.ModelCheckpoint(monitor='val_acc', mode = 'max'),
                  EpochTimer()]
     if args.log: callbacks.append(pl.callbacks.LearningRateMonitor(logging_interval='epoch'))
     

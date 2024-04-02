@@ -177,7 +177,7 @@ class ShearTransform:
     Args:
         shear_std (float): std to use for shear transformation. Default: 0.2
     """
-    def __init__(self, shear_std: float=0.2):
+    def __init__(self, shear_std: float=0.1):
         self.shear_std = shear_std
 
     def __call__(self, data:dict):
