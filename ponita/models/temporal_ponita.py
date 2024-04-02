@@ -41,8 +41,8 @@ class TemporalPonita(PonitaFiberBundle):
         self.args = args
         self.conv1d_layer = nn.ModuleList()
         self.num_layers = num_layers    
-        self.kernel_size = 5
-        self.stride =  1
+        self.kernel_size = self.args.kernel_size
+        self.stride =  self.args.stride
         self.padding = int((self.kernel_size - 1) / 2)
         self.conv1d_layer.append(nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, groups = hidden_dim,  kernel_size=self.kernel_size, stride=self.stride, padding = self.padding))
         
@@ -52,6 +52,8 @@ class TemporalPonita(PonitaFiberBundle):
                                 [17, 23], [23, 24], [17, 25], [25, 26]]
         self.n_edges = len(self.inward_edges)
         
+        dropout_rate = 0.1
+        self.dropout = nn.Dropout(dropout_rate)
 
         # Tot edges per frame is number of nodes (self.edges) +  number of edges (except in the last frame )
         # Tot edges is (self.n_self_edges - 1), last frame does not have a self edge, plus number of edges* number of frames 
@@ -70,23 +72,18 @@ class TemporalPonita(PonitaFiberBundle):
         kernel_basis = self.basis_fn(graph.attr) * self.windowing_fn(graph.dists).unsqueeze(-2)
         fiber_kernel_basis = self.fiber_basis_fn(graph.fiber_attr)
 
-
         # Initial feature embeding
         x = self.x_embedder(graph.x)
-
-        # Given this, do we actually need temporal edges? Is it not just an ordered smoshing of rows in x?
-        # What about positions, how are they considered and how does it matter?
-        ''' If we assume that we only keep the spatial edges, do we need to do really anything special?
-        '''
 
         # Interaction + readout layers
         readouts = []
 
         for interaction_layer, readout_layer in zip(self.interaction_layers, self.read_out_layers):
+            y = x
+
             # Assuming only spatial edges
-
+            
             x = interaction_layer(x, graph.edge_index, edge_attr=kernel_basis, fiber_attr=fiber_kernel_basis, batch=graph.batch)
-
                 
             x, graph = self.conv1d(x, graph)
 
@@ -107,10 +104,7 @@ class TemporalPonita(PonitaFiberBundle):
     
     def conv1d(self, x, graph):
         """ Perform 1D convolution on the time axis 
-
         This would need to keep trac of the vid_id, and only perform convolutions within the same vid_id
-
-
         """
         num_land_marks = self.args.n_nodes
         
@@ -130,6 +124,7 @@ class TemporalPonita(PonitaFiberBundle):
             # Convolution is performed on the last axis of the input data 
             for layer in self.conv1d_layer:
                 x_tmp = layer(x_tmp)
+                x_tmp = self.dropout(x_tmp)
 
             x_tmp = x_tmp.permute(2, 0, 1)
 

@@ -54,11 +54,11 @@ if __name__ == "__main__":
     # Run parameters
     parser.add_argument('--epochs', type=int, default=400,
                         help='number of epochs')
-    parser.add_argument('--warmup', type=int, default=0,
+    parser.add_argument('--warmup', type=int, default=50,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=5,
+    parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size. Does not scale with number of gpus.')
-    parser.add_argument('--lr', type=float, default=7e-4,
+    parser.add_argument('--lr', type=float, default=5e-3,
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
@@ -81,16 +81,22 @@ if __name__ == "__main__":
     ## Data location settings
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
-    parser.add_argument('--root_metadata', type=str, default="subset_metadata.json",
+    parser.add_argument('--root_metadata', type=str, default="wlasl_100.json",
                         help='Metadata json file location')
-    parser.add_argument('--root_poses', type=str, default="subset_selection",
+    parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
                         help='Pose data dir location')
     
     # Classification type settings
-    parser.add_argument('--n_classes', type=str, default=10,
+    parser.add_argument('--n_classes', type=str, default=100,
                         help='Number of sign classes')
     parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
+    
+    # Time-Convolution settings
+    parser.add_argument('--kernel_size', type=int, default=5,
+                        help='Size of temporal convolution kernel')
+    parser.add_argument('--stride', type=int, default=1,
+                        help='Stride of temporal convolution kernel') 
     
     ## Graph size parameter
     parser.add_argument('--n_nodes', type=int, default=27,
@@ -103,17 +109,17 @@ if __name__ == "__main__":
                         help='enable self interactions')
     
     # PONTA model settings
-    parser.add_argument('--num_ori', type=int, default=4,
+    parser.add_argument('--num_ori', type=int, default=18,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=63,
+    parser.add_argument('--hidden_dim', type=int, default=16,
                         help='internal feature dimension')
-    parser.add_argument('--basis_dim', type=int, default=128,
+    parser.add_argument('--basis_dim', type=int, default=16,
                         help='number of basis functions')
-    parser.add_argument('--degree', type=int, default=3,
+    parser.add_argument('--degree', type=int, default=2,
                         help='degree of the polynomial embedding')
-    parser.add_argument('--layers', type=int, default=3,
+    parser.add_argument('--layers', type=int, default=2,
                         help='Number of message passing layers')
-    parser.add_argument('--widening_factor', type=int, default=4,
+    parser.add_argument('--widening_factor', type=int, default=2,
                         help='Number of message passing layers')
     parser.add_argument('--layer_scale', type=float, default=0,
                         help='Initial layer scale factor in ConvNextBlock, 0 means do not use layer scale')
@@ -159,9 +165,9 @@ if __name__ == "__main__":
     # ------------------------ Weights and Biases logger
     if args.log:
         if args.model_name != '':
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=args.model_name, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="wlasl_break", name=args.model_name, config=args, save_dir='logs')
         else:
-            logger = pl.loggers.WandbLogger(project="PONITA-ISR", name=None, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="wlasl_break", name=None, config=args, save_dir='logs')
     else:
         logger = None
 
@@ -172,7 +178,7 @@ if __name__ == "__main__":
     
     # Pytorch lightning call backs
     callbacks = [EMA(0.99),
-                 pl.callbacks.ModelCheckpoint(monitor='valid ACC', mode = 'max'),
+                 pl.callbacks.ModelCheckpoint(monitor='val_acc', mode = 'max'),
                  EpochTimer()]
     if args.log: callbacks.append(pl.callbacks.LearningRateMonitor(logging_interval='epoch'))
     
