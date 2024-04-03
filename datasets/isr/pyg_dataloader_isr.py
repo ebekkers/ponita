@@ -85,7 +85,7 @@ class ISRDataReader:
         frames = torch.tensor(np.asarray(kps, dtype=np.float32)).permute(2, 0, 1)
         frames = self.pose_select(frames)
         # We only do this here for testing purposes, this is not precent on lisa
-        data = frames[:, ::5, :]
+        #data = frames[:, ::5, :]
         self.scalenorm(data)
         
         
