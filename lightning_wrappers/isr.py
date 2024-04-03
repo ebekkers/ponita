@@ -5,9 +5,9 @@ from ponita.models.ponita import Ponita
 import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
-from ponita.transforms.random_rotate import RandomRotate 
-from ponita.transforms.pose_transforms import ShearTransform
-from datasets.isr.pose_transforms import CenterAndScaleNormalize
+from ponita.transforms.random_rotate import RandomRotate
+#from ponita.transforms.pose_transforms import ShearTransform
+#from ponita.transforms.pose_transforms import CenterAndScaleNormalize
 import os
 from ponita.models.temporal_ponita import TemporalPonita
 
@@ -30,7 +30,7 @@ class PONITA_ISR(pl.LightningModule):
         # For rotation augmentations during training and testing
         self.train_augm = args.train_augm
         self.rotation_transform = RandomRotate(['pos'], n=2)
-        self.shear_transform = ShearTransform()
+        #self.shear_transform = ShearTransform(shear_std = 0.1)
         
         
         # The metrics to log
@@ -70,7 +70,8 @@ class PONITA_ISR(pl.LightningModule):
     def training_step(self, graph):
         if self.train_augm:
             graph = self.rotation_transform(graph)
-            #graph = self.shear_transform(graph)
+            # graph = self.shear_transform(graph)
+            #graph = CenterAndScaleNormalize(graph)
         pred = self(graph)
         pred = torch.nn.functional.log_softmax(pred, dim=-1)
         loss = torch.nn.functional.nll_loss(pred, graph.y)
@@ -143,7 +144,7 @@ class PONITA_ISR(pl.LightningModule):
         # create the pytorch optimizer object
         optim_groups = [
             {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": self.weight_decay},
-            {"params": [param_dict[pn] for pn in sorted(list(decay_conv))], "weight_decay": 1e-4},
+            {"params": [param_dict[pn] for pn in sorted(list(decay_conv))], "weight_decay": 1e-3},
             {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
         ]
         optimizer = torch.optim.Adam(optim_groups, lr=self.lr)
