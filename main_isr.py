@@ -31,9 +31,13 @@ if __name__ == "__main__":
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
+    parser.add_argument('--temporal_weight_decay', type=float, default=1e-3,
+                        help='weight decay on parameters in 1D temporal conv')
+    parser.add_argument('--temporal_dropout_rate', type=float, default=0.1,
+                        help='dropout rate on parameters in 1D temporal conv')
     parser.add_argument('--log', type=eval, default=True,
                         help='logging flag')
-    parser.add_argument('--model_name', type=str, default='Ponita_wd',
+    parser.add_argument('--model_name', type=str, default='Ponita_scaleandnorm',
                         help='logging flag')
     parser.add_argument('--enable_progress_bar', type=eval, default=True,
                         help='enable progress bar')
@@ -43,7 +47,7 @@ if __name__ == "__main__":
                         help='Random seed')
     
     # Train settings
-    parser.add_argument('--train_augm', type=eval, default=True,
+    parser.add_argument('--train_augm', type=eval, default=False,
                         help='whether or not to use random rotations during training')
         
     # ISR Dataset settings
@@ -71,7 +75,7 @@ if __name__ == "__main__":
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
 
-    parser.add_argument('--kernel_size', type=int, default=5,
+    parser.add_argument('--kernel_size', type=int, default=9,
                         help='size of 1D conv kernel')    
     parser.add_argument('--stride', type=int, default=1,
                         help='size of 1D conv stride')    
