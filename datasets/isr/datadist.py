@@ -1,5 +1,5 @@
-from dataset_isr import ISRDataReader
-from dataset_isr import PyGDataLoader
+from pyg_dataloader_isr import ISRDataReader
+from pyg_dataloader_isr import PyGDataLoader
 import os    
 import imageio
 import networkx as nx
@@ -20,7 +20,7 @@ parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
                     help='Pose data dir location')
 parser.add_argument('--batch_size', type=int, default=5,
                     help='Batch size. Does not scale with number of gpus.')
-parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
+parser.add_argument('--temporal_configuration', type=str, default="per_frame",
                     help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
 
 # Train settings
@@ -30,6 +30,10 @@ parser.add_argument('--train_augm', type=eval, default=True,
 # ISR Dataset
 parser.add_argument('--n_classes', type=str, default=2000,
                     help='Number of sign classes')
+## Graph size parameter
+parser.add_argument('--n_nodes', type=int, default=27,
+                    help='Number of nodes to use when reducing the graph - only 27 currently implemented') 
+    
 
 parser.add_argument('--reduce_graph', type=bool, default=False,
                     help='') 
@@ -77,7 +81,7 @@ def build_png(filename = '11327_f_41'):
     plt.title("Connected Graph")
     plt.savefig('img/' + filename +'.png')
 
-#build_png(filename = '11327')
+build_png(filename = '11327')
 
 def build_gif(vid_id = '13645'):
     frame_ids = [s for s in list(data.data_dict.keys()) if s.startswith(vid_id)]
@@ -137,4 +141,4 @@ def build_histogram(data_dict, dimension=1, num_bins=20, save_path='img/hist.png
     else:
         plt.show()
 
-build_histogram(data.data_dict)
+#build_histogram(data.data_dict)

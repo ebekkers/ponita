@@ -22,6 +22,7 @@ class PONITA_ISR(pl.LightningModule):
         # Store some of the relevant args
         self.lr = args.lr
         self.weight_decay = args.weight_decay
+        self.temporal_weight_decay = args.temporal_weight_decay
         self.epochs = args.epochs
         self.warmup = args.warmup
         if args.layer_scale == 0.:
@@ -144,7 +145,7 @@ class PONITA_ISR(pl.LightningModule):
         # create the pytorch optimizer object
         optim_groups = [
             {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": self.weight_decay},
-            {"params": [param_dict[pn] for pn in sorted(list(decay_conv))], "weight_decay": 1e-3},
+            {"params": [param_dict[pn] for pn in sorted(list(decay_conv))], "weight_decay": self.temporal_weight_decay},
             {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
         ]
         optimizer = torch.optim.Adam(optim_groups, lr=self.lr)

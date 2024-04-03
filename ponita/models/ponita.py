@@ -50,9 +50,9 @@ class PonitaFiberBundle(nn.Module):
         self.global_pooling = task_level=='graph'
 
         # For constructing the position-orientation graph and its invariants
+        # Here we build the manifold, which are only dependent on the number of orientations we wish to consider
+        # When we use this function, we lift our representations to the manifold 
         self.transform = Compose([PositionOrientationGraph(num_ori), SEnInvariantAttributes(separable=True)])
-
-        
 
 
         # Activation function to use internally
@@ -92,13 +92,13 @@ class PonitaFiberBundle(nn.Module):
         fiber_kernel_basis = self.fiber_basis_fn(graph.fiber_attr)
 
         # Initial feature embeding
+        # Simply to increase the expressivity 
         x = self.x_embedder(graph.x)
 
         # Interaction + readout layers
         readouts = []
         for interaction_layer, readout_layer in zip(self.interaction_layers, self.read_out_layers):
             x = interaction_layer(x, graph.edge_index, edge_attr=kernel_basis, fiber_attr=fiber_kernel_basis, batch=graph.batch)
-            
             if readout_layer is not None: readouts.append(readout_layer(x))
         readout = sum(readouts) / len(readouts)
         

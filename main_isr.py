@@ -22,18 +22,25 @@ if __name__ == "__main__":
     
     # Run parameters
     parser.add_argument('--epochs', type=int, default=500,
+    parser.add_argument('--epochs', type=int, default=500,
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
     parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size. Does not scale with number of gpus.')
+    parser.add_argument('--lr', type=float, default=5e-3,
     parser.add_argument('--lr', type=float, default=5e-3,
                         help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-10,
                         help='weight decay')
+    parser.add_argument('--temporal_weight_decay', type=float, default=1e-3,
+                        help='weight decay on parameters in 1D temporal conv')
+    parser.add_argument('--temporal_dropout_rate', type=float, default=0.1,
+                        help='dropout rate on parameters in 1D temporal conv')
     parser.add_argument('--log', type=eval, default=True,
                         help='logging flag')
-    parser.add_argument('--model_name', type=str, default='Ponita_1000',
+    parser.add_argument('--model_name', type=str, default='Ponita_scaleandnorm',
                         help='logging flag')
     parser.add_argument('--enable_progress_bar', type=eval, default=True,
                         help='enable progress bar')
@@ -43,7 +50,7 @@ if __name__ == "__main__":
                         help='Random seed')
     
     # Train settings
-    parser.add_argument('--train_augm', type=eval, default=True,
+    parser.add_argument('--train_augm', type=eval, default=False,
                         help='whether or not to use random rotations during training')
         
     # ISR Dataset settings
@@ -52,6 +59,7 @@ if __name__ == "__main__":
                         help='Data set location')
     parser.add_argument('--root_metadata', type=str, default="wlasl_1000.json",
                         help='Metadata json file location')
+    parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
     parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
                         help='Pose data dir location')
     
@@ -76,17 +84,28 @@ if __name__ == "__main__":
     parser.add_argument('--stride', type=int, default=1,
                         help='size of 1D conv stride')    
 
+
+    parser.add_argument('--kernel_size', type=int, default=9,
+                        help='size of 1D conv kernel')    
+    parser.add_argument('--stride', type=int, default=1,
+                        help='size of 1D conv stride')    
+
     # PONTA model settings
+    parser.add_argument('--num_ori', type=int, default=12,
     parser.add_argument('--num_ori', type=int, default=12,
                         help='num elements of spherical grid')
     parser.add_argument('--hidden_dim', type=int, default=32,
+    parser.add_argument('--hidden_dim', type=int, default=32,
                         help='internal feature dimension')
+    parser.add_argument('--basis_dim', type=int, default=32,
     parser.add_argument('--basis_dim', type=int, default=32,
                         help='number of basis functions')
     parser.add_argument('--degree', type=int, default=3,
                         help='degree of the polynomial embedding')
     parser.add_argument('--layers', type=int, default=2,
+    parser.add_argument('--layers', type=int, default=2,
                         help='Number of message passing layers')
+    parser.add_argument('--widening_factor', type=int, default=2,
     parser.add_argument('--widening_factor', type=int, default=2,
                         help='Number of message passing layers')
     parser.add_argument('--layer_scale', type=float, default=0,
@@ -134,7 +153,9 @@ if __name__ == "__main__":
     if args.log:
         if args.model_name != '':
             logger = pl.loggers.WandbLogger(project="wlasl_break", name=args.model_name, config=args, save_dir='logs')
+            logger = pl.loggers.WandbLogger(project="wlasl_break", name=args.model_name, config=args, save_dir='logs')
         else:
+            logger = pl.loggers.WandbLogger(project="wlasl_break", name=None, config=args, save_dir='logs')
             logger = pl.loggers.WandbLogger(project="wlasl_break", name=None, config=args, save_dir='logs')
     else:
         logger = None
