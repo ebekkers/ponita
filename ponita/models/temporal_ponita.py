@@ -52,7 +52,7 @@ class TemporalPonita(PonitaFiberBundle):
                                 [17, 23], [23, 24], [17, 25], [25, 26]]
         self.n_edges = len(self.inward_edges)
         
-        dropout_rate = 0.1
+        dropout_rate = self.args.temporal_dropout_rate
         self.dropout = nn.Dropout(dropout_rate)
 
         # Tot edges per frame is number of nodes (self.edges) +  number of edges (except in the last frame )
@@ -106,6 +106,7 @@ class TemporalPonita(PonitaFiberBundle):
         """ Perform 1D convolution on the time axis 
         This would need to keep trac of the vid_id, and only perform convolutions within the same vid_id
         """
+        
         num_land_marks = self.args.n_nodes
         
         x_conv = []
@@ -127,9 +128,6 @@ class TemporalPonita(PonitaFiberBundle):
                 x_tmp = self.dropout(x_tmp)
 
             x_tmp = x_tmp.permute(2, 0, 1)
-
-            #downsample = x.shape[0]*num_land_marks
-            #x = x.reshape(downsample, num_ori, num_channels)
             x_tmp = x_tmp.reshape(num_nodes_batch, num_ori, num_channels)
             x_conv.append(x_tmp)
 

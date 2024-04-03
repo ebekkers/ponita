@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
+from .pose_transforms_new import CenterAndScaleNormalize
 
 
 
@@ -20,10 +21,11 @@ class ISRDataReader:
         # Load metadata
         file_path = os.path.join(data_dir, args.root_metadata)
         self._load_metadata(file_path)
-
+        
         # Load pose data from pickle files 
         pickle_path = os.path.join(data_dir, args.root_poses)
         data_dict = self._load_pkl_files(pickle_path)
+
         
         # Treat each frame as individual data points
         if args.temporal_configuration == 'per_frame':
@@ -36,6 +38,8 @@ class ISRDataReader:
         
         else:
             raise ValueError('Temporal configuration not recognized')
+        
+        self.scalenorm = CenterAndScaleNormalize()
         
 
     def _load_metadata(self, file_path):
@@ -77,14 +81,26 @@ class ISRDataReader:
     def _transform_data(self, kps):
         """ Apply selected transformations to the data
         """
+        self.scalenorm = CenterAndScaleNormalize()
         frames = torch.tensor(np.asarray(kps, dtype=np.float32)).permute(2, 0, 1)
-        data = self._downsample_data(frames)
-
+        frames = self.pose_select(frames)
+        # We only do this here for testing purposes, this is not precent on lisa
+        data = frames[:, ::5, :]
+        self.scalenorm(data)
+        
+        
         # TODO: Load the other transformations
         
         return data
+    
+    def scaleandnormalize(self, data):
+        """ Scale and normalize the data
+        """
+        reference_point_indexes = [3,4]
+        scale_factor=1,
+        frame_level=False
 
-    def _downsample_data(self, frames):
+    def pose_select(self, frames):
         """ Downsample pose graph based on the standard node selection from holistic 27 minimal nodes
         """
         # Indexes for reduction of graph nodes of graph size 27 nodes, predefined in holistic mediapipe package 
@@ -155,6 +171,7 @@ class ISRDataReader:
                 temporal_edges = graph_constructor.temporal_edges[:int((self.max_frames-1)*graph_constructor.n_temporal_edges),:]
                 temporal_edges = temporal_edges.t().contiguous()
             x = graph_constructor.landmark_features[:,:end_idx].T
+
             pos = graph_constructor.reshape_nodes(data['node_pos'])
             
             
