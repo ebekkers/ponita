@@ -14,37 +14,6 @@ from datasets.isr.pyg_dataloader_isr import PyGDataLoader
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
-
-class Sparsify(BaseTransform):
-    def __init__(self, threshold=0.5):
-        super().__init__()
-        self.threshold = threshold
-
-    def __call__(self, graph):
-        select = graph.x[:,0] > self.threshold
-        graph.x = graph.x[select]
-        graph.pos = graph.pos[select]
-        if graph.batch is not None:
-            graph.batch = graph.batch[select]
-        graph.edge_index = None
-        return graph
-    
-from torch_geometric.transforms import BaseTransform
-class RemoveDuplicatePoints(BaseTransform):
-    def __init__(self):
-        super().__init__()
-
-    def __call__(self, graph):
-        dists = (graph.pos[:,None,:] - graph.pos[None,:,:]).norm(dim=-1)
-        dists = dists + 100. * torch.tril(torch.ones_like(dists), diagonal=0)
-        min_dists = dists.min(dim=1)[0]
-        select = min_dists > 0.
-        graph.x = graph.x[select]
-        graph.pos = graph.pos[select]
-        graph.edge_index = None
-        return graph
-    
-
 # ------------------------ Start of the main experiment script
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -52,11 +21,11 @@ if __name__ == "__main__":
     # ------------------------ Input arguments
     
     # Run parameters
-    parser.add_argument('--epochs', type=int, default=400,
+    parser.add_argument('--epochs', type=int, default=500,
                         help='number of epochs')
-    parser.add_argument('--warmup', type=int, default=50,
+    parser.add_argument('--warmup', type=int, default=0,
                         help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=64,
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size. Does not scale with number of gpus.')
     parser.add_argument('--lr', type=float, default=5e-3,
                         help='learning rate')
@@ -64,7 +33,7 @@ if __name__ == "__main__":
                         help='weight decay')
     parser.add_argument('--log', type=eval, default=True,
                         help='logging flag')
-    parser.add_argument('--model_name', type=str, default='',
+    parser.add_argument('--model_name', type=str, default='Ponita_1000',
                         help='logging flag')
     parser.add_argument('--enable_progress_bar', type=eval, default=True,
                         help='enable progress bar')
@@ -81,22 +50,16 @@ if __name__ == "__main__":
     ## Data location settings
     parser.add_argument('--root', type=str, default="datasets/isr",
                         help='Data set location')
-    parser.add_argument('--root_metadata', type=str, default="wlasl_100.json",
+    parser.add_argument('--root_metadata', type=str, default="wlasl_1000.json",
                         help='Metadata json file location')
     parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
                         help='Pose data dir location')
     
     # Classification type settings
-    parser.add_argument('--n_classes', type=str, default=100,
+    parser.add_argument('--n_classes', type=str, default=1000,
                         help='Number of sign classes')
     parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
                         help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
-    
-    # Time-Convolution settings
-    parser.add_argument('--kernel_size', type=int, default=5,
-                        help='Size of temporal convolution kernel')
-    parser.add_argument('--stride', type=int, default=1,
-                        help='Stride of temporal convolution kernel') 
     
     ## Graph size parameter
     parser.add_argument('--n_nodes', type=int, default=27,
@@ -107,15 +70,20 @@ if __name__ == "__main__":
                         help='radius for the radius graph construction in front of the force loss')
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
-    
+
+    parser.add_argument('--kernel_size', type=int, default=9,
+                        help='size of 1D conv kernel')    
+    parser.add_argument('--stride', type=int, default=1,
+                        help='size of 1D conv stride')    
+
     # PONTA model settings
-    parser.add_argument('--num_ori', type=int, default=18,
+    parser.add_argument('--num_ori', type=int, default=12,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=16,
+    parser.add_argument('--hidden_dim', type=int, default=32,
                         help='internal feature dimension')
-    parser.add_argument('--basis_dim', type=int, default=16,
+    parser.add_argument('--basis_dim', type=int, default=32,
                         help='number of basis functions')
-    parser.add_argument('--degree', type=int, default=2,
+    parser.add_argument('--degree', type=int, default=3,
                         help='degree of the polynomial embedding')
     parser.add_argument('--layers', type=int, default=2,
                         help='Number of message passing layers')
