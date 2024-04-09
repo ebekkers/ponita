@@ -3,6 +3,7 @@ import torch.nn as nn
 from ponita.models.ponita import PonitaFiberBundle
 from ponita.nn.conv import Conv, FiberBundleConv
 from ponita.nn.convnext import ConvNext
+import torch.nn.functional as F
 import math
 
 class TemporalPonita(PonitaFiberBundle):
@@ -39,12 +40,12 @@ class TemporalPonita(PonitaFiberBundle):
                          **kwargs)  
         
         self.args = args
-        self.conv1d_layer = nn.ModuleList()
+        #self.conv1d_layer = nn.ModuleList()
         self.num_layers = num_layers    
         self.kernel_size = self.args.kernel_size
         self.stride =  self.args.stride
         self.padding = int((self.kernel_size - 1) / 2)
-        self.conv1d_layer.append(nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, groups = hidden_dim,  kernel_size=self.kernel_size, stride=self.stride, padding = self.padding))
+        #self.conv1d_layer.append(nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, groups = hidden_dim,  kernel_size=self.kernel_size, stride=self.stride, padding = self.padding))
         
         self.inward_edges = [[2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
                                 [7, 8], [7, 9], [9, 10], [7, 11], [11, 12], [7, 13], [13, 14], 
@@ -52,8 +53,7 @@ class TemporalPonita(PonitaFiberBundle):
                                 [17, 23], [23, 24], [17, 25], [25, 26]]
         self.n_edges = len(self.inward_edges)
         
-        dropout_rate = self.args.temporal_dropout_rate
-        self.dropout = nn.Dropout(dropout_rate)
+        self.tconv = TCNUnit(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=self.kernel_size, stride=self.stride, padding = self.padding, dropout_rate = args.temporal_dropout_rate)
 
         # Tot edges per frame is number of nodes (self.edges) +  number of edges (except in the last frame )
         # Tot edges is (self.n_self_edges - 1), last frame does not have a self edge, plus number of edges* number of frames 
@@ -123,9 +123,7 @@ class TemporalPonita(PonitaFiberBundle):
             x_tmp = x_tmp.permute(1, 2, 0)
 
             # Convolution is performed on the last axis of the input data 
-            for layer in self.conv1d_layer:
-                x_tmp = layer(x_tmp)
-                x_tmp = self.dropout(x_tmp)
+            x_tmp = self.tconv.forward(x_tmp)
 
             x_tmp = x_tmp.permute(2, 0, 1)
             x_tmp = x_tmp.reshape(num_nodes_batch, num_ori, num_channels)
@@ -164,64 +162,93 @@ class TCNUnit(nn.Module):
         kernel_size=9,
         stride=1,
         use_drop=True,
-        drop_size=1.92,
+        dropout_rate=0.1,
         num_points=25,
+        padding = 0,
         block_size=41,
+        
     ):
         super(TCNUnit, self).__init__()
         pad = int((kernel_size - 1) / 2)
-        self.conv = nn.Conv2d(
-            in_channels,
-            out_channels,
-            kernel_size=(1, kernel_size),
-            padding=(0,pad),
-            stride=(1, stride),
-        )
-
-        self.bn = nn.BatchNorm2d(out_channels)
+        self.conv = nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=pad, groups=in_channels)
         conv_init(self.conv)
-        bn_init(self.bn, 1)
+        self.in_channels = in_channels
+        self.out_channels = out_channels
 
-        self.use_drop = False
-        if use_drop:
-            self.dropT = DropGraphTemporal(block_size=block_size)
+        #self.attention = nn.Conv1d(out_channels, 1, kernel_size=kernel_size, padding=pad)
+        #nn.Conv1d(out_channels, kernel_size=kernel_size, padding = pad)  # Produces a single attention score per time step
+        #nn.init.xavier_uniform_(self.attention.weight)
+        #nn.init.constant_(self.attention.weight, 0)
+        #nn.init.zeros_(self.attention.bias)
+        self.dropout = nn.Dropout(dropout_rate)
+        #self.bn = nn.BatchNorm1d(out_channels)
+        #bn_init(self.bn, 1)
+        self.attention = TAttnUnit(in_channels)
+        
 
-    def forward(self, x, keep_prob=None, A=None):
-        # In dim, out dim, n_frames, nodes 
-        x = self.bn(self.conv(x))
-        if self.use_drop:
-            x = self.dropT(self.dropS(x, keep_prob, A), keep_prob)
+    def forward(self, x):
+        x = self.attention.forward(x)
+        x = self.dropout(x)
+        y = self.conv(x)
+        return y 
+
+
+
+class TAttnUnit(nn.Module):
+    def __init__(
+        self,
+        hid_dim
+    ):
+        super(TAttnUnit, self).__init__()
+        self.hidden_dim = hid_dim
+        
+    def invariant(self, x):
+        return x
+    
+    def inv_emb_to_q(self, inv):
+        q = inv
+        return q
+    
+    def inv_emb_to_k(self, inv):
+        k = inv
+        return k
+    
+    def x_to_v(self, x):
+        # Interpreting x as values (appearances, high freq info)
         return x
 
+    def forward(self, x):
+        # Assuming x's shape: [number of features, batch size, time axis]
+        # First, ensure x is correctly permuted: [batch size, number of features, time axis]
 
-class DropGraphTemporal(nn.Module):
-    def __init__(self, block_size=7):
-        super(DropGraphTemporal, self).__init__()
-        self.block_size = block_size
+        #x = x.permute(1, 0, 2)
+        x = x.permute(1, 0, 2)
+        # Get invariants (if any transformation is needed, it's done here)
+        inv = self.invariant(x)
+        
+        # Calculate query, key, value
+        q = self.inv_emb_to_q(inv)  # [batch size, number of features, time axis]
+        k = self.inv_emb_to_k(inv)
+        v = self.x_to_v(x)
+        q = q.permute(1, 2, 0)
+        k = k.permute(1, 2, 0)
 
-    def forward(self, x, keep_prob):
-        self.keep_prob = keep_prob
-        if not self.training or self.keep_prob == 1:
-            return x
+        
 
-        n, c, t, v = x.size()
+        # Compute attention scores: [batch size, time axis, time axis]
+        # [FEATURES, batch_size, time axis]
+        d_k = q.size(-1)
+        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
+        
+        # Softmax to obtain probabilities
+        attn_probs = F.softmax(scores, dim=-1)
+        
+        # Apply attention to values (v needs to be [batch size, time axis, number of features] too)
+        v = v.permute(1, 2, 0)
+        y = torch.matmul(attn_probs, v)  # [batch size, time axis, number of features]
+        
+        
+        # Optionally, transpose back if required: [number of features, batch size, time axis]
+        y = y.permute(0, 2, 1)
 
-        input_abs = torch.mean(torch.mean(torch.abs(x), dim=3), dim=1).detach()
-        input_abs = (input_abs / torch.sum(input_abs) * input_abs.numel()).view(n, 1, t)
-        gamma = (1.0 - self.keep_prob) / self.block_size
-        input1 = x.permute(0, 1, 3, 2).contiguous().view(n, c * v, t)
-        M = torch.bernoulli(torch.clamp(input_abs * gamma, max=1.0)).repeat(1, c * v, 1)
-        m_sum = F.max_pool1d(
-            M, kernel_size=[self.block_size], stride=1, padding=self.block_size // 2
-        )
-        mask = (1 - m_sum).to(device=m_sum.device, dtype=m_sum.dtype)
-        return (
-            (input1 * mask * mask.numel() / mask.sum())
-            .view(n, c, v, t)
-            .permute(0, 1, 3, 2)
-        )
-
-
-if __name__ == "__main__":
-    
-    time_ponita = TemporalPonita(27, 64, 10, 4)
+        return y

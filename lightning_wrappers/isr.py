@@ -111,7 +111,7 @@ class PONITA_ISR(pl.LightningModule):
         no_decay = set()
         whitelist_weight_modules = (torch.nn.Linear,)
         whitelist_weight_conv_modules = (torch.nn.Conv1d,)
-        blacklist_weight_modules = (torch.nn.LazyBatchNorm1d, torch.nn.LayerNorm, torch.nn.Embedding)
+        blacklist_weight_modules = (torch.nn.LazyBatchNorm1d, torch.nn.LayerNorm, torch.nn.Embedding, torch.nn.BatchNorm1d)
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
