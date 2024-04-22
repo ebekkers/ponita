@@ -88,7 +88,7 @@ def uniform_grid_s2(
     set_alpha_as_neg_gamma: bool = False,
     steps: int = 100,
     step_size: float = 0.1,
-    show_pbar: bool = True,
+    show_pbar: bool = False,
     device: Optional[str] = None,
 ) -> Tensor:
     """
