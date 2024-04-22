@@ -1,1 +1,1 @@
-from ponita import models
+from . import models
