@@ -1,1 +1,2 @@
-from . import models
+# ponita/__init__.py
+# Empty content
