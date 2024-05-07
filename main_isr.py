@@ -7,7 +7,7 @@ from lightning_wrappers.isr import PONITA_ISR
 from torch_geometric.transforms import BaseTransform
 
 from datasets.isr.pyg_dataloader_isr import ISRDataReader
-from datasets.isr.pyg_dataloader_isr import PyGDataLoader
+from datasets.isr.pyg_dataloader_isr import ISRDataLoader
 
 
 # TODO: do we need this?
@@ -52,35 +52,11 @@ if __name__ == "__main__":
     parser.add_argument('--train_augm', type=eval, default=False,
                         help='whether or not to use random rotations during training')
         
-    # ISR Dataset settings
-    ## Data location settings
-    parser.add_argument('--root', type=str, default="datasets/isr",
-                        help='Data set location')
-    parser.add_argument('--root_metadata', type=str, default="wlasl_100.json",
-                        help='Metadata json file location')
-    parser.add_argument('--root_poses', type=str, default="wlasl_poses_pickle",
-                        help='Pose data dir location')
-    
-    # Classification type settings
-    parser.add_argument('--n_classes', type=str, default=988,
-                        help='Number of sign classes')
-    parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
-                        help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
-    
-    ## Graph size parameter
-    parser.add_argument('--n_nodes', type=int, default=27,
-                        help='Number of nodes to use when reducing the graph - only 27 currently implemented') 
-    
     # Graph connectivity settings
     parser.add_argument('--radius', type=eval, default=None,
                         help='radius for the radius graph construction in front of the force loss')
     parser.add_argument('--loop', type=eval, default=True,
                         help='enable self interactions')
-
-    parser.add_argument('--kernel_size', type=int, default=9,
-                        help='size of 1D conv kernel')    
-    parser.add_argument('--stride', type=int, default=1,
-                        help='size of 1D conv stride')    
 
     # PONTA model settings
     parser.add_argument('--num_ori', type=int, default=18,
@@ -99,16 +75,34 @@ if __name__ == "__main__":
                         help='Initial layer scale factor in ConvNextBlock, 0 means do not use layer scale')
     parser.add_argument('--multiple_readouts', type=eval, default=False,
                         help='Whether or not to readout after every layer')
+    # TIME PONITA model spesific settings
+    parser.add_argument('--kernel_size', type=int, default=9,
+                        help='size of 1D conv kernel')    
+    parser.add_argument('--stride', type=int, default=1,
+                        help='size of 1D conv stride')    
+    
+    # ISR Dataset settings
+    parser.add_argument('--root', type=str, default="datasets/isr",
+                        help='Data set location')
+    parser.add_argument('--root_metadata', type=str, default="NGT/metadata_train_1_3_test_3.json",
+                        help='Metadata json file location')
+    parser.add_argument('--root_poses', type=str, default="NGT/Poses",
+                        help='Pose data dir location')
+    parser.add_argument('--n_classes', type=str, default=113,
+                        help='Number of sign classes')
+    parser.add_argument('--temporal_configuration', type=str, default="spatio_temporal",
+                        help='Temporal configuration of the graph. Options: spatio_temporal, per_frame') 
+    parser.add_argument('--n_nodes', type=int, default=27,
+                        help='Number of nodes to use when reducing the graph - only 27 currently implemented') 
     
     # Parallel computing stuff
     parser.add_argument('-g', '--gpus', default=1, type=int,
                         help='number of gpus to use (assumes all are on one node)')
     
-    # Arg parser
     args = parser.parse_args()
     
     # ------------------------ Device settings
-    
+
     if args.gpus > 0:
         accelerator = "gpu"
         devices = args.gpus
@@ -118,18 +112,14 @@ if __name__ == "__main__":
     if args.num_workers == -1:
         args.num_workers = os.cpu_count()
 
-    # ------------------------ Dataset
+    # ------------------------ Dataset Loader
     
-    # Load the dataset and set the dataset specific settings
-    
+    # Load the dataset
     data_dir = os.path.dirname(__file__) + '/' + args.root
     data = ISRDataReader(data_dir, args)
 
-    # Create train, val, test splits
-
-
-    # Make the dataloaders
-    pyg_loader = PyGDataLoader(data, args)
+    # Dataloader
+    pyg_loader = ISRDataLoader(data, args)
     
     
     # ------------------------ Load and initialize the model

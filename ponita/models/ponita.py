@@ -52,6 +52,8 @@ class PonitaFiberBundle(nn.Module):
         # For constructing the position-orientation graph and its invariants
         # Here we build the manifold, which are only dependent on the number of orientations we wish to consider
         # When we use this function, we lift our representations to the manifold 
+        
+        #self.transform = Compose([PositionOrientationGraph(num_ori, radius=1000), SEnInvariantAttributes(separable=True)])
         self.transform = Compose([PositionOrientationGraph(num_ori), SEnInvariantAttributes(separable=True)])
 
 

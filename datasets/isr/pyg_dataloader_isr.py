@@ -7,16 +7,14 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from .pose_transforms_new import CenterAndScaleNormalize
 
-
-
-
 class ISRDataReader:
     def __init__(self, data_dir, args):
         print('Reading data...')
         
         self.args = args
         self.N_NODES = args.n_nodes
-        self.max_frames = 128
+        # Currently set at max of NGT200 dataset
+        self.max_frames = 240
         
         # Load metadata
         file_path = os.path.join(data_dir, args.root_metadata)
@@ -24,22 +22,16 @@ class ISRDataReader:
         
         # Load pose data from pickle files 
         pickle_path = os.path.join(data_dir, args.root_poses)
-        data_dict = self._load_pkl_files(pickle_path)
+        data_dict = self._load_pose_data(pickle_path)
 
-        
-        # Treat each frame as individual data points
-        if args.temporal_configuration == 'per_frame':
-            self.data_dict = self._separate_temporal_dimension(data_dict)
-
-        # Build spatio temporal graph 
-        elif args.temporal_configuration == 'spatio_temporal':
-            print('Building graphs...')
-            self.data_dict = self._build_spatio_temporal_graph(data_dict)
-        
-        else:
-            raise ValueError('Temporal configuration not recognized')
-        
+        # Define transformations
         self.scalenorm = CenterAndScaleNormalize()
+        
+        # Build spatio-temporal graph 
+        print('Building graphs...')
+        self.data_dict = self._build_spatio_temporal_graph(data_dict)
+        
+    
         
 
     def _load_metadata(self, file_path):
@@ -54,7 +46,7 @@ class ISRDataReader:
                 [(instance['video_id'], instance['split']) for instance in item['instances']])
 
 
-    def _load_pkl_files(self, pickle_path):
+    def _load_pose_data(self, pickle_path):
         """ Load the pickle files and create a dictionary with the data
         """
         labels = {word: index for index, word in enumerate(self.gloss_dict.keys())}
@@ -81,27 +73,33 @@ class ISRDataReader:
     def _transform_data(self, kps):
         """ Apply selected transformations to the data
         """
-        self.scalenorm = CenterAndScaleNormalize()
+        # frames: [2 (x and y), n_frames, 75 nodes]
         frames = torch.tensor(np.asarray(kps, dtype=np.float32)).permute(2, 0, 1)
-        frames = self.pose_select(frames)
-        # We only do this here for testing purposes, this is not precent on lisa
-        #data = frames[:, ::5, :]
-        self.scalenorm(data)
         
+        # Subsample nodes
+        # frames: [2 (x and y), n_frames, 25 nodes]
+        frames = self.pose_select(frames)
+
+        # Normalize poses
+        # TODO Finish testing Scale and Normalization
+        # self.scalenorm(data)
         
         # TODO: Load the other transformations
         
         return data
     
-    def scaleandnormalize(self, data):
+    def scaleandnormalize(self, frames):
         """ Scale and normalize the data
         """
         reference_point_indexes = [3,4]
         scale_factor=1,
         frame_level=False
+    
+    def downsample_frames(self, frames, downsample_rate = 5):
+        return frames[:, ::downsample_rate, :]
 
     def pose_select(self, frames):
-        """ Downsample pose graph based on the standard node selection from holistic 27 minimal nodes
+        """ Downsample pose graph based on the standard node selection from holistic 27 minimal node set
         """
         # Indexes for reduction of graph nodes of graph size 27 nodes, predefined in holistic mediapipe package 
         pose_indexes = [0, 2, 5, 11, 12, 13, 14, 33, 37, 38, 41, 42, 45, 46, 49, 50, 53, 54, 58, 59, 62, 63, 66, 67, 70, 71, 74]
@@ -110,39 +108,7 @@ class ISRDataReader:
     #--------------------------------------
     # C. Graph construction functionalities
     #--------------------------------------    
-    def _separate_temporal_dimension(self, data_dict):
-        """
-        Separates the temporal dimension of the data.
         
-        For each video, it splits the data into individual frames and stores them 
-        with a unique key representing each frame of the video.
-        
-        :param data_dict: A dictionary with video data, keyed by video ID.
-        :return: A dictionary with data separated by individual frames.
-        """
-        separated_frame_dict = {}
-
-        node_features = torch.tensor(np.eye(self.N_NODES))  
-
-        for vid_id, data in data_dict.items():
-            label, gloss, split = data['label'], data['gloss'], data['split']
-            node_pos = data['node_pos']
-            num_frames = node_pos.shape[1]
-
-            for frame_idx in range(num_frames):
-                new_key = f"{vid_id}_f_{frame_idx}"
-                frame_data = node_pos[:, frame_idx, :]
-                separated_frame_dict[new_key] = {
-                    'label': label,
-                    'gloss': gloss, 
-                    'x': node_features.float(),  
-                    'node_pos': frame_data,
-                    'split': split,
-                    'frame_idx': frame_idx
-                }
-
-        return separated_frame_dict
-    
     def _build_spatio_temporal_graph(self, data_dict):
         """
         Builds a spatio-temporal graph from the provided data dictionary.
@@ -153,27 +119,35 @@ class ISRDataReader:
         :param data_dict: A dictionary containing video data.
         :return: A dictionary containing the spatio-temporal graph data.
         """
-        # Build node features and edges for max number of frames
+        
         graph_constructor = SpatioTemporalGraphBuilder(data_dict, self.args)
 
         graph_dict = {}
+
         for vid_id, data in data_dict.items():
+
+            # number of frames per gloss
             n_frames = data['node_pos'].shape[1]
             end_idx = int(n_frames*self.N_NODES)
+
             if n_frames < self.max_frames:
                 spatial_edges =  graph_constructor.spatial_edges[:int(n_frames*graph_constructor.n_spatial_edges),:]
                 spatial_edges = spatial_edges.t().contiguous()
                 temporal_edges = graph_constructor.temporal_edges[:int((n_frames-1)*graph_constructor.n_temporal_edges),:]
                 temporal_edges = temporal_edges.t().contiguous()
+
             else: 
                 spatial_edges =  graph_constructor.spatial_edges[:int(self.max_frames*graph_constructor.n_spatial_edges),:]
                 spatial_edges = spatial_edges.t().contiguous()
                 temporal_edges = graph_constructor.temporal_edges[:int((self.max_frames-1)*graph_constructor.n_temporal_edges),:]
                 temporal_edges = temporal_edges.t().contiguous()
+
+
+            # Get landmarks as features
             x = graph_constructor.landmark_features[:,:end_idx].T
 
+            # Get positions
             pos = graph_constructor.reshape_nodes(data['node_pos'])
-            
             
             #x, pos = self.add_padding(x, pos)
 
@@ -181,13 +155,11 @@ class ISRDataReader:
                 'label': data['label'],
                 'gloss': data['gloss'],
                 'x': x,  
-                'n_frames': data['node_pos'].shape[1], #data['node_pos'].shape[1], 
+                'n_frames': data['node_pos'].shape[1], 
                 'node_pos': pos,  
                 'edges': spatial_edges,   
                 'split': data['split']
             }
-
-            
 
         return graph_dict
 
@@ -210,15 +182,15 @@ class SpatioTemporalGraphBuilder:
         :param inward_edges: List of edges in the format [source, destination].
         """
         # Find max number of frames in dataset
-        self.max_n_frames = max(item['node_pos'].shape[1] for item in data_dict.values())
-        self.args         = args
+        self.max_n_frames     = max(item['node_pos'].shape[1] for item in data_dict.values())
+        self.args             = args
         
         self.N_NODES          = args.n_nodes
         self.tot_number_nodes = self.max_n_frames * self.N_NODES
 
         if inward_edges is None:
             ## Default holistic mediapipe edges
-            self.inward_edges = [[2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
+            self.inward_edges = [ [2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
                                 [7, 8], [7, 9], [9, 10], [7, 11], [11, 12], [7, 13], [13, 14], 
                                 [7, 15], [15, 16], [17, 18], [17, 19], [19, 20], [17, 21], [21, 22], 
                                 [17, 23], [23, 24], [17, 25], [25, 26]]
@@ -250,12 +222,12 @@ class SpatioTemporalGraphBuilder:
         :param num_frames: The number of frames in the data.
         :return: A tensor representing the edges in the graph.
         """
-        # TODO
-
         spatial_edges = []
 
         # Adding spatial edges for each frame
+        # Indexing incrementally
         for frame in range(self.max_n_frames):
+
             frame_offset = frame * self.N_NODES
             for edge in self.inward_edges:
                 n1 = frame_offset + edge[0]
@@ -279,14 +251,15 @@ class SpatioTemporalGraphBuilder:
         return pos_data.reshape(pos_data.shape[0], -1)
     
 
-class PyGDataLoader:
+class ISRDataLoader:
     def __init__(self, data, args):
         print('Building dataloader...')
         self.data_dict = data.data_dict
         self.batch_size = args.batch_size
         self.args = args
+        
         if args.temporal_configuration == 'per_frame':
-            self.inward_edges = [[2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
+            self.inward_edges = [ [2, 0], [1, 0], [0, 3], [0, 4], [3, 5], [4, 6], [5, 7], [6, 17], 
                                 [7, 8], [7, 9], [9, 10], [7, 11], [11, 12], [7, 13], [13, 14], 
                                 [7, 15], [15, 16], [17, 18], [17, 19], [19, 20], [17, 21], [21, 22], 
                                 [17, 23], [23, 24], [17, 25], [25, 26]]
@@ -350,7 +323,7 @@ if __name__ == "__main__":
     data_dir = os.path.dirname(__file__) + '/' + args.root
     data = ISRDataReader(data_dir, args)
 
-    pyg_loader = PyGDataLoader(data, args)
+    pyg_loader = ISRDataLoader(data, args)
     pyg_loader.build_loaders()
 
 

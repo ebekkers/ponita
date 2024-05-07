@@ -1,7 +1,7 @@
 wandb
 *.ckpt
 backup
-datasets/mnist
+datasets/
 logs
 n_body_system/dataset/*.npy
 

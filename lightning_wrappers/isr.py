@@ -37,8 +37,8 @@ class PONITA_ISR(pl.LightningModule):
         self.test_metric = torchmetrics.Accuracy(task='multiclass', num_classes=args.n_classes)
 
         # Input/output specifications:
-        in_channels_scalar = 0  
-        in_channels_vec = args.n_nodes  # Node landmark one-hot encoding 
+        in_channels_scalar = args.n_nodes  # Node landmark one-hot encoding  
+        in_channels_vec = 0 
         out_channels_scalar =  args.n_classes # The target
         out_channels_vec = 0  # 
 
