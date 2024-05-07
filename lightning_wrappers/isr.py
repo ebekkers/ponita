@@ -6,8 +6,6 @@ import torchmetrics
 import numpy as np
 from .scheduler import CosineWarmupScheduler
 from ponita.transforms.random_rotate import RandomRotate
-#from ponita.transforms.pose_transforms import ShearTransform
-#from ponita.transforms.pose_transforms import CenterAndScaleNormalize
 import os
 from ponita.models.temporal_ponita import TemporalPonita
 
@@ -31,7 +29,6 @@ class PONITA_ISR(pl.LightningModule):
         # For rotation augmentations during training and testing
         self.train_augm = args.train_augm
         self.rotation_transform = RandomRotate(['pos'], n=2)
-        #self.shear_transform = ShearTransform(shear_std = 0.1)
         
         
         # The metrics to log
@@ -72,7 +69,6 @@ class PONITA_ISR(pl.LightningModule):
         if self.train_augm:
             graph = self.rotation_transform(graph)
             # graph = self.shear_transform(graph)
-            #graph = CenterAndScaleNormalize(graph)
         pred = self(graph)
         pred = torch.nn.functional.log_softmax(pred, dim=-1)
         loss = torch.nn.functional.nll_loss(pred, graph.y)
@@ -110,8 +106,8 @@ class PONITA_ISR(pl.LightningModule):
         decay_conv = set()
         no_decay = set()
         whitelist_weight_modules = (torch.nn.Linear,)
-        whitelist_weight_conv_modules = (torch.nn.Conv1d,)
-        blacklist_weight_modules = (torch.nn.LazyBatchNorm1d, torch.nn.LayerNorm, torch.nn.Embedding, torch.nn.BatchNorm1d)
+        whitelist_weight_conv_modules = (torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Parameter)
+        blacklist_weight_modules = (torch.nn.LazyBatchNorm1d, torch.nn.LayerNorm, torch.nn.Embedding, torch.nn.BatchNorm2d, torch.nn.BatchNorm1d)
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
@@ -131,6 +127,8 @@ class PONITA_ISR(pl.LightningModule):
                     # weights of blacklist modules will NOT be weight decayed
                     no_decay.add(fpn)
                 elif pn.endswith('layer_scale'):
+                    no_decay.add(fpn)
+                elif pn.endswith('temporal_encoding'):
                     no_decay.add(fpn)
            
 
