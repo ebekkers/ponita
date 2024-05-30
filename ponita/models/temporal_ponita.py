@@ -181,7 +181,9 @@ class TCNUnit(nn.Module):
         super(TCNUnit, self).__init__()
         pad = int((kernel_size - 1) / 2)
         self.conv = nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=pad, groups=in_channels)
+        self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=pad, groups=in_channels)
         self.conv_init(self.conv)
+        self.conv_init(self.conv1)
         self.in_channels = in_channels
         self.out_channels = out_channels
 
@@ -194,7 +196,9 @@ class TCNUnit(nn.Module):
         #self.bn = nn.BatchNorm1d(out_channels)
         #bn_init(self.bn, 1)
         #self.attention = TAttnUnit(out_channels)
-        self.relu = nn.ReLU()
+
+        # self.activation = nn.ReLU()
+        self.activation = nn.GELU()
     
     def conv_init(self, conv):
         nn.init.kaiming_normal_(conv.weight, mode="fan_out")
@@ -207,7 +211,10 @@ class TCNUnit(nn.Module):
         y = self.conv(x)
         
         # Use an activation function 
-        y = self.relu(y)
+        y = self.activation(y)
+
+        y = self.conv1(y)
+        y = self.activation(y)
 
         # Residual connection 
         return y + x

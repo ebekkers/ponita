@@ -32,14 +32,17 @@ class PONITA_ISR(pl.LightningModule):
         
         
         # The metrics to log
-        self.train_metric = torchmetrics.Accuracy(task='multiclass', num_classes=args.n_classes)
-        self.valid_metric = torchmetrics.Accuracy(task='multiclass', num_classes=args.n_classes)
-        self.test_metric = torchmetrics.Accuracy(task='multiclass', num_classes=args.n_classes)
+        self.train_metric = torchmetrics.Accuracy(task='multiclass', num_classes=int(args.n_classes))
+        self.valid_metric = torchmetrics.Accuracy(task='multiclass', num_classes=int(args.n_classes))
+        self.test_metric0 = torchmetrics.Accuracy(task='multiclass', num_classes=int(args.n_classes))
+        self.test_metric1 = torchmetrics.Accuracy(task='multiclass', num_classes=int(args.n_classes))
+        self.test_metric2 = torchmetrics.Accuracy(task='multiclass', num_classes=int(args.n_classes))
+        self.top_val_metric = 0
 
         # Input/output specifications:
         in_channels_scalar = args.n_nodes  # Node landmark one-hot encoding  
         in_channels_vec = 0 
-        out_channels_scalar =  args.n_classes # The target
+        out_channels_scalar = int(args.n_classes) # The target
         out_channels_vec = 0  # 
 
         # Make the model
@@ -58,6 +61,8 @@ class PONITA_ISR(pl.LightningModule):
                         multiple_readouts=args.multiple_readouts,
                         lift_graph=True,
                         args=args).to('cuda:0')
+        
+        self.test_num = 0
     
     def forward(self, graph):
         # Only utilize the scalar (energy) prediction
@@ -84,13 +89,26 @@ class PONITA_ISR(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         self.log("val_acc", self.valid_metric, prog_bar=True)
-    
-    def test_step(self, graph, batch_idx):
-        pred = self(graph)
-        self.test_metric(pred, graph.y)
 
-    def on_test_epoch_end(self):
-        self.log("test_acc", self.test_metric, prog_bar=True)
+        epoch_val_metric = self.valid_metric.compute()
+        if self.top_val_metric < epoch_val_metric:
+            self.top_val_metric = epoch_val_metric
+    
+    def test_step(self, graph, batch_idx, dataloader_idx):
+        pred = self(graph)
+        if dataloader_idx == 0:
+            self.test_metric0(pred, graph.y)
+        elif dataloader_idx == 1:
+            self.test_metric1(pred, graph.y)
+        elif dataloader_idx == 2:
+            self.test_metric1(pred, graph.y)
+        else:
+            print("Fuckk")
+
+    def on_test_epoch_end(self, ):
+        self.log(f"test_acc_0", self.test_metric0, prog_bar=True)
+        self.log(f"test_acc_1", self.test_metric1, prog_bar=True)
+        self.log(f"test_acc_2", self.test_metric2, prog_bar=True)
     
     def configure_optimizers(self):
         """

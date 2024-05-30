@@ -1,10 +1,12 @@
 import argparse
 import os
+from functools import partial
+
+import wandb
 import torch
 import pytorch_lightning as pl
 from lightning_wrappers.callbacks import EMA, EpochTimer
 from lightning_wrappers.isr import PONITA_ISR
-from torch_geometric.transforms import BaseTransform
 
 from datasets.isr.pyg_dataloader_isr import ISRDataReader
 from datasets.isr.pyg_dataloader_isr import ISRDataLoader
@@ -14,7 +16,73 @@ from datasets.isr.pyg_dataloader_isr import ISRDataLoader
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
-# ------------------------ Start of the main experiment script
+
+def train(args):
+    ########
+    if args.gpus > 0:
+        accelerator = "gpu"
+        devices = args.gpus
+    else:
+        accelerator = "cpu"
+        devices = "auto"
+    if args.num_workers == -1:
+        args.num_workers = os.cpu_count()
+
+    # ------------------------ Dataset Loader
+    
+    # Load the dataset
+    data_dir = os.path.dirname(__file__) + '/' + args.root
+    data = ISRDataReader(data_dir, args)
+
+    # Dataloader
+    pyg_loader = ISRDataLoader(data, args)
+    
+    
+    # ------------------------ Load and initialize the model
+    model = PONITA_ISR(args)
+    
+
+    # ------------------------ Weights and Biases logger
+    logger = pl.loggers.WandbLogger(project=args.wandb_log_folder+"_final", name="manual", config=args, save_dir=args.wandb_log_folder)
+
+    # ------------------------ Set up the trainer
+    
+    # Seed
+    pl.seed_everything(args.seed, workers=True)
+    
+    # Pytorch lightning call backs
+    callbacks = [EMA(0.99),
+                 pl.callbacks.ModelCheckpoint(monitor='val_acc', mode = 'max'),
+                 EpochTimer()]
+    if args.log: callbacks.append(pl.callbacks.LearningRateMonitor(logging_interval='epoch'))
+    
+    # Initialize the trainer
+    # trainer = pl.Trainer(gpus = 1, logger=logger, max_epochs=args.epochs, callbacks=callbacks, inference_mode=False, 
+    #                     gradient_clip_val=0.5, accelerator=accelerator, devices=devices, enable_progress_bar=args.enable_progress_bar,
+    #                     resume_from_checkpoint=args.checkpoint_path)
+    trainer = pl.Trainer(logger=logger, max_epochs=args.epochs, callbacks=callbacks, inference_mode=False, 
+                        gradient_clip_val=0.5, accelerator=accelerator, devices=devices, enable_progress_bar=args.enable_progress_bar)
+
+#    trainer = pl.Trainer(gpus = 1, logger=logger, max_epochs=args.epochs, callbacks=callbacks, inference_mode=False, # Important for force computation via backprop
+#                         gradient_clip_val=0.5, accelerator=accelerator, devices=devices, enable_progress_bar=args.enable_progress_bar,
+#                          resume_from_checkpoint=args.resume_from_checkpoint)
+
+    # Do the training
+    trainer.fit(model, pyg_loader.train_loader, pyg_loader.val_loader)
+    
+    # And test
+    trainer.test(model, [pyg_loader.test_loader[0],pyg_loader.test_loader[1], pyg_loader.test_loader[2]] , ckpt_path = "best")
+    
+    # Finish wandb to get different wandb runs
+    wandb.run.finish()
+
+    return model.top_val_metric
+
+
+
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -26,7 +94,7 @@ if __name__ == "__main__":
 
     
     # Run parameters
-    parser.add_argument('--epochs', type=int, default=200,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs')
     parser.add_argument('--warmup', type=int, default=100,
                         help='number of epochs')
@@ -54,7 +122,7 @@ if __name__ == "__main__":
                         help='Random seed')
 
     # Settings for saving the model
-    parser.add_argument('--save_folder', type=str, default='logs/',
+    parser.add_argument('--save_folder', type=str, default='./logs/',
                         help='logging flag')
     
     # Train settings
@@ -68,15 +136,15 @@ if __name__ == "__main__":
                         help='enable self interactions')
 
     # PONTA model settings
-    parser.add_argument('--num_ori', type=int, default=6,
+    parser.add_argument('--num_ori', type=int, default=1,
                         help='num elements of spherical grid')
-    parser.add_argument('--hidden_dim', type=int, default=128,
+    parser.add_argument('--hidden_dim', type=int, default=64,
                         help='internal feature dimension')
-    parser.add_argument('--basis_dim', type=int, default=256,
+    parser.add_argument('--basis_dim', type=int, default=128,
                         help='number of basis functions')
     parser.add_argument('--degree', type=int, default=1,
                         help='degree of the polynomial embedding')
-    parser.add_argument('--layers', type=int, default=5,
+    parser.add_argument('--layers', type=int, default=6,
                         help='Number of message passing layers')
     parser.add_argument('--widening_factor', type=int, default=4,
                         help='Number of message passing layers')
@@ -114,62 +182,4 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # ------------------------ Device settings
-
-    if args.gpus > 0:
-        accelerator = "gpu"
-        devices = args.gpus
-    else:
-        accelerator = "cpu"
-        devices = "auto"
-    if args.num_workers == -1:
-        args.num_workers = os.cpu_count()
-
-    # ------------------------ Dataset Loader
-    
-    # Load the dataset
-    data_dir = os.path.dirname(__file__) + '/' + args.root
-    data = ISRDataReader(data_dir, args)
-
-    # Dataloader
-    pyg_loader = ISRDataLoader(data, args)
-    
-    
-    # ------------------------ Load and initialize the model
-    model = PONITA_ISR(args)
-    
-
-    # ------------------------ Weights and Biases logger
-    if args.log:
-        if args.model_name != '':
-            logger = pl.loggers.WandbLogger(project=args.wandb_log_folder, name=args.model_name, config=args, save_dir=args.save_folder)
-        else:
-            logger = pl.loggers.WandbLogger(project=args.wandb_log_folder, name=None, config=args, save_dir=args.save_folder)
-    else:
-        logger = None
-
-    # ------------------------ Set up the trainer
-    
-    # Seed
-    pl.seed_everything(args.seed, workers=True)
-    
-    # Pytorch lightning call backs
-    callbacks = [EMA(0.99),
-                 pl.callbacks.ModelCheckpoint(monitor='val_acc', mode = 'max'),
-                 EpochTimer()]
-    if args.log: callbacks.append(pl.callbacks.LearningRateMonitor(logging_interval='epoch'))
-    
-    # Initialize the trainer
-    trainer = pl.Trainer(gpus = 1, logger=logger, max_epochs=args.epochs, callbacks=callbacks, inference_mode=False, 
-                        gradient_clip_val=0.5, accelerator=accelerator, devices=devices, enable_progress_bar=args.enable_progress_bar,
-                        resume_from_checkpoint=args.checkpoint_path)
-    
-#    trainer = pl.Trainer(gpus = 1, logger=logger, max_epochs=args.epochs, callbacks=callbacks, inference_mode=False, # Important for force computation via backprop
-#                         gradient_clip_val=0.5, accelerator=accelerator, devices=devices, enable_progress_bar=args.enable_progress_bar,
-#                          resume_from_checkpoint=args.resume_from_checkpoint)
-
-    # Do the training
-    trainer.fit(model, pyg_loader.train_loader, pyg_loader.val_loader)
-    
-    # And test
-    trainer.test(model, pyg_loader.test_loader, ckpt_path = "best")
+    train(args)

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#SBATCH --account=all6000users
+#SBATCH --partition=all6000
+#SBATCH --gpus=1
+#SBATCH --job-name=SLR
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=9
+#SBATCH --time=48:00:00
+#SBATCH --mem=48G
+#SBATCH --output=slurm/slurm_slr_classification_%A.out
+
+source /home/dwessel/miniforge3/etc/profile.d/mamba.sh
+mamba activate ponita_slr
+
+srun python run_isr.py

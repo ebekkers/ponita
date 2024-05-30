@@ -13,8 +13,10 @@ class ISRDataReader:
         
         self.args = args
         self.N_NODES = args.n_nodes
+        self.set_scalenorm = args.scale_norm
+        self.downsample = args.downsample
         # Currently set at max of NGT200 dataset
-        self.max_frames = 240
+        self.max_frames = 300
         
         # Load metadata
         file_path = os.path.join(data_dir, args.root_metadata)
@@ -25,7 +27,7 @@ class ISRDataReader:
         data_dict = self._load_pose_data(pickle_path)
 
         # Define transformations
-        self.scalenorm = CenterAndScaleNormalize()
+
         
         # Build spatio-temporal graph 
         print('Building graphs...')
@@ -43,7 +45,7 @@ class ISRDataReader:
         self.gloss_dict = {}
         for item in metadata:  
             self.gloss_dict.setdefault(item['gloss'], []).extend(
-                [(instance['video_id'], instance['split']) for instance in item['instances']])
+                [(instance['video_id'], instance['split'], instance['camera_view']) for instance in item['instances']])
 
 
     def _load_pose_data(self, pickle_path):
@@ -56,10 +58,11 @@ class ISRDataReader:
                 'label': labels[gloss],
                 'gloss': gloss,
                 'node_pos': self._transform_data(pickle.load(open(os.path.join(pickle_path, f'{vid_id}.pkl'), 'rb'))["keypoints"][:, :, :2]),
-                'split': split
+                'split': split,
+                'view': view,
             }
             for gloss, metadata in self.gloss_dict.items()
-            for vid_id, split in metadata
+            for vid_id, split, view in metadata
             if os.path.exists(os.path.join(pickle_path, f'{vid_id}.pkl'))
         }
 
@@ -76,26 +79,28 @@ class ISRDataReader:
         # frames: [2 (x and y), n_frames, 75 nodes]
         frames = torch.tensor(np.asarray(kps, dtype=np.float32)).permute(2, 0, 1)
         
+        
         # Subsample nodes
         # frames: [2 (x and y), n_frames, 25 nodes]
         frames = self.pose_select(frames)
 
+        # Downsample number of frames
+        if self.downsample:
+            frames = self.downsample_frames(frames)
+
         # Normalize poses
         # TODO Finish testing Scale and Normalization
-        # self.scalenorm(data)
+
+        if self.set_scalenorm:
+            self.scalenorm = CenterAndScaleNormalize()
+            frames = self.scalenorm(frames)
+            
+
         
-        # TODO: Load the other transformations
-        
-        return data
+        return frames
     
-    def scaleandnormalize(self, frames):
-        """ Scale and normalize the data
-        """
-        reference_point_indexes = [3,4]
-        scale_factor=1,
-        frame_level=False
     
-    def downsample_frames(self, frames, downsample_rate = 5):
+    def downsample_frames(self, frames, downsample_rate = 3):
         return frames[:, ::downsample_rate, :]
 
     def pose_select(self, frames):
@@ -123,11 +128,13 @@ class ISRDataReader:
         graph_constructor = SpatioTemporalGraphBuilder(data_dict, self.args)
 
         graph_dict = {}
-
+        max_frames_count = 0
         for vid_id, data in data_dict.items():
 
             # number of frames per gloss
             n_frames = data['node_pos'].shape[1]
+            if n_frames > max_frames_count:
+                max_frames_count = n_frames
             end_idx = int(n_frames*self.N_NODES)
 
             if n_frames < self.max_frames:
@@ -158,7 +165,8 @@ class ISRDataReader:
                 'n_frames': data['node_pos'].shape[1], 
                 'node_pos': pos,  
                 'edges': spatial_edges,   
-                'split': data['split']
+                'split': data['split'],
+                'view': data['view'],
             }
 
         return graph_dict
@@ -272,12 +280,19 @@ class ISRDataLoader:
         train_data, val_data, test_data = self._split_dataset(self.data_dict)
         self.train_loader  = self._load_data(train_data)
         self.val_loader = self._load_data(val_data, shuffle = False, split = 'val')
-        self.test_loader = self._load_data(test_data, shuffle = False, split='test')
+        self.test_loader = [
+            self._load_data(test_data[0], shuffle = False, split='test'),
+            self._load_data(test_data[0], shuffle = False, split='test'),
+            self._load_data(test_data[0], shuffle = False, split='test'),
+        ]
 
     def _split_dataset(self, data_dict):
         train_data = {k: v for k, v in data_dict.items() if v['split'] == 'train'}
         val_data = {k: v for k, v in data_dict.items() if v['split'] == 'val'}
-        test_data = {k: v for k, v in data_dict.items() if v['split'] == 'test'}
+        test_data_v0 = {k: v for k, v in data_dict.items() if v['split'] == 'test' and v['view'] == 0}
+        test_data_v1 = {k: v for k, v in data_dict.items() if v['split'] == 'test' and v['view'] == 1}
+        test_data_v2 = {k: v for k, v in data_dict.items() if v['split'] == 'test' and v['view'] == 2}
+        test_data = [test_data_v0, test_data_v1, test_data_v2]
         return train_data, val_data, test_data
 
     def _load_data(self, data_dict, shuffle = True, split = 'train'): 
@@ -289,7 +304,7 @@ class ISRDataLoader:
             if self.args.temporal_configuration == 'spatio_temporal':
                 self.edge_index = data['edges']
             
-            data_list.append(Data(pos = pos, x = x, edge_index= self.edge_index, y=y, n_frames = data['n_frames']))
+            data_list.append(Data(pos = pos, x = x, edge_index= self.edge_index, y=y, n_frames = data['n_frames'], view = data['view']))
            
         
         print('Number of ' + split + ' points:', len(data_list))

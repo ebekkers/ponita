@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from ponita.nn.attn import TAttnUnit
 import torch.nn.functional as F
 import math
 
@@ -16,7 +15,6 @@ class TAttnUnit(nn.Module):
         self.q_transform = nn.Linear( self.hidden_dim,  self.hidden_dim, bias=False)
         self.k_transform = nn.Linear( self.hidden_dim,  self.hidden_dim, bias=False)
         self.v_transform = nn.Linear( self.hidden_dim,  self.hidden_dim, bias=False)
-
         
         # Temporal encoding
         self.max_time_steps = 240
